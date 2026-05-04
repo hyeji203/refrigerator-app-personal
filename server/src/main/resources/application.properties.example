@@ -1,0 +1,44 @@
+# ============================================
+# 앱 기본 설정
+# ============================================
+spring.application.name=refrigerator-app
+server.port=8080
+
+# ============================================
+# Oracle DB 설정
+# ============================================
+spring.datasource.url=jdbc:oracle:thin:@localhost:1521:XE
+spring.datasource.driver-class-name=oracle.jdbc.OracleDriver
+spring.datasource.username=system
+spring.datasource.password=${DB_PASSWORD}
+
+# JPA 설정
+spring.jpa.database-platform=org.hibernate.dialect.OracleDialect
+spring.jpa.hibernate.ddl-auto=none
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+
+# ============================================
+# JWT 설정
+# ============================================
+jwt.secret=${JWT_SECRET}
+jwt.expiration=86400000
+
+# ============================================
+# API 키 설정 (발급 후 입력)
+# ============================================
+gemini.api.key=${GEMINI_API_KEY}
+gemini.api.url=https://generativelanguage.googleapis.com/v1beta/models
+
+# Clarifai API 설정
+clarifai.api.key=${CLARIFAI_API_KEY}
+
+youtube.api.key=${YOUTUBE_API_KEY}
+youtube.api.url=https://www.googleapis.com/youtube/v3
+
+# ============================================
+# 파일 업로드 설정
+# ============================================
+spring.servlet.multipart.max-file-size=10MB
+spring.servlet.multipart.max-request-size=10MB
+file.upload.path=./uploads

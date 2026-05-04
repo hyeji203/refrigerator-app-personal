@@ -1,0 +1,48 @@
+# ===== Flutter / Dart =====
+app/.dart_tool/
+app/build/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/.packages
+app/pubspec.lock
+
+# Flutter generated
+app/android/.gradle/
+app/android/local.properties
+app/android/app/debug/
+app/android/app/profile/
+app/android/app/release/
+app/ios/Pods/
+app/ios/.symlinks/
+app/ios/Flutter/Flutter.framework/
+app/ios/Flutter/Flutter.podspec
+app/ios/Runner.xcworkspace/
+app/windows/flutter/ephemeral/
+app/linux/flutter/ephemeral/
+app/macos/Flutter/ephemeral/
+
+# ===== Spring Boot / Maven =====
+server/target/
+server/.mvn/
+*.class
+*.jar
+*.war
+
+# ===== IDE =====
+.vscode/settings.json
+.idea/
+*.iml
+*.iws
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== 민감 정보 =====
+server/src/main/resources/application-secret.properties
+
+# ===== 기타 =====
+.claude/
+3b_db/
+*.dmd
