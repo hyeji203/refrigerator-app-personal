@@ -1,0 +1,13 @@
+target/
+*.class
+
+# 민감 정보 포함 설정 파일
+src/main/resources/application.properties
+src/main/resources/application-*.properties
+
+# IDE
+.idea/
+*.iml
+.classpath
+.project
+.settings/
