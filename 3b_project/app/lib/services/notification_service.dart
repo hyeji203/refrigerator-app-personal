@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz;
@@ -12,7 +13,7 @@ class NotificationService {
 
   /// 앱 시작 시 1회 초기화
   static Future<void> initialize() async {
-    if (_initialized) return;
+    if (kIsWeb || _initialized) return;
 
     tz.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Asia/Seoul'));
@@ -45,6 +46,7 @@ class NotificationService {
 
   /// 유통기한 임박 재료 조회 후 알림 스케줄링
   static Future<void> scheduleExpiryNotifications(int userId) async {
+    if (kIsWeb) return;
     await initialize();
 
     List<Ingredient> expiring = [];
@@ -196,6 +198,7 @@ class NotificationService {
     required String ingredientName,
     required String expiryDateStr,
   }) async {
+    if (kIsWeb) return;
     await initialize();
 
     final expiryDate = DateTime.tryParse(expiryDateStr);
@@ -229,6 +232,7 @@ class NotificationService {
 
   /// 모든 알림 취소
   static Future<void> cancelAll() async {
+    if (kIsWeb) return;
     await _plugin.cancelAll();
   }
 }
