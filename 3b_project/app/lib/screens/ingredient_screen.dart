@@ -8,6 +8,7 @@ import '../services/ingredient_service.dart';
 import '../services/notification_service.dart';
 import '../widgets/app_loading_indicator.dart';
 import '../widgets/empty_state_widget.dart';
+import '../widgets/ingredient_form.dart';
 
 class IngredientScreen extends StatefulWidget {
   const IngredientScreen({super.key});
@@ -172,13 +173,7 @@ class IngredientScreenState extends State<IngredientScreen> {
   }
 
   void _showEditDialog(Ingredient ingredient) {
-    final nameController =
-        TextEditingController(text: ingredient.ingredientName);
-    final quantityController =
-        TextEditingController(text: ingredient.quantity ?? '');
-    DateTime? expiryDate = ingredient.expiryDate != null
-        ? DateTime.tryParse(ingredient.expiryDate!)
-        : null;
+    final formKey = GlobalKey<IngredientFormState>();
     bool isLoading = false;
 
     showDialog(
@@ -187,56 +182,14 @@ class IngredientScreenState extends State<IngredientScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           title: const Text('식재료 수정'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: '재료명 *',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: quantityController,
-                decoration: const InputDecoration(
-                  labelText: '수량 (예: 2개, 500g)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.calendar_today),
-                label: Text(expiryDate == null
-                    ? '유통기한 선택'
-                    : DateFormat('yyyy-MM-dd').format(expiryDate!)),
-                onPressed: isLoading
-                    ? null
-                    : () async {
-                        final picked = await showDatePicker(
-                          context: ctx,
-                          initialDate: expiryDate ?? DateTime.now(),
-                          firstDate: DateTime(2020),
-                          lastDate:
-                              DateTime.now().add(const Duration(days: 365 * 3)),
-                        );
-                        if (picked != null) {
-                          setDialogState(() => expiryDate = picked);
-                        }
-                      },
-              ),
-              if (expiryDate != null)
-                TextButton.icon(
-                  icon: const Icon(Icons.clear, size: 16),
-                  label: const Text('유통기한 삭제'),
-                  style: TextButton.styleFrom(foregroundColor: Colors.red),
-                  onPressed: isLoading
-                      ? null
-                      : () => setDialogState(() => expiryDate = null),
-                ),
-            ],
+          content: IngredientForm(
+            key: formKey,
+            initialName: ingredient.ingredientName,
+            initialQuantity: ingredient.quantity ?? '',
+            initialExpiryDate: ingredient.expiryDate != null
+                ? DateTime.tryParse(ingredient.expiryDate!)
+                : null,
+            firstDate: DateTime(2020),
           ),
           actions: [
             TextButton(
@@ -258,23 +211,23 @@ class IngredientScreenState extends State<IngredientScreen> {
               onPressed: isLoading
                   ? null
                   : () async {
-                      if (nameController.text.trim().isEmpty) {
+                      final form = formKey.currentState!;
+                      if (form.name.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('재료명을 입력해주세요')),
                         );
                         return;
                       }
                       setDialogState(() => isLoading = true);
-                      final expiryStr = expiryDate != null
-                          ? DateFormat('yyyy-MM-dd').format(expiryDate!)
+                      final expiryStr = form.expiryDate != null
+                          ? DateFormat('yyyy-MM-dd').format(form.expiryDate!)
                           : null;
-                      final quantity = quantityController.text.trim();
                       try {
                         await IngredientApiService.updateIngredient(
                           ingredient.userIngredientId,
                           {
-                            'ingredientName': nameController.text.trim(),
-                            'quantity': quantity.isEmpty ? null : quantity,
+                            'ingredientName': form.name,
+                            'quantity': form.quantity.isEmpty ? null : form.quantity,
                             'expiryDate': expiryStr,
                           },
                         );
@@ -341,9 +294,7 @@ class IngredientScreenState extends State<IngredientScreen> {
   }
 
   void _showAddDialog() {
-    final nameController = TextEditingController();
-    final quantityController = TextEditingController();
-    DateTime? expiryDate;
+    final formKey = GlobalKey<IngredientFormState>();
     bool isLoading = false;
 
     showDialog(
@@ -352,48 +303,7 @@ class IngredientScreenState extends State<IngredientScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           title: const Text('식재료 추가'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: '재료명 *',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: quantityController,
-                decoration: const InputDecoration(
-                  labelText: '수량 (예: 2개, 500g)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.calendar_today),
-                label: Text(expiryDate == null
-                    ? '유통기한 선택'
-                    : DateFormat('yyyy-MM-dd').format(expiryDate!)),
-                onPressed: isLoading
-                    ? null
-                    : () async {
-                        final picked = await showDatePicker(
-                          context: ctx,
-                          initialDate: DateTime.now(),
-                          firstDate: DateTime.now(),
-                          lastDate:
-                              DateTime.now().add(const Duration(days: 365)),
-                        );
-                        if (picked != null) {
-                          setDialogState(() => expiryDate = picked);
-                        }
-                      },
-              ),
-            ],
-          ),
+          content: IngredientForm(key: formKey),
           actions: [
             TextButton(
               onPressed: isLoading ? null : () => Navigator.pop(ctx),
@@ -403,7 +313,8 @@ class IngredientScreenState extends State<IngredientScreen> {
               onPressed: isLoading
                   ? null
                   : () async {
-                      if (nameController.text.trim().isEmpty) {
+                      final form = formKey.currentState!;
+                      if (form.name.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('재료명을 입력해주세요')),
                         );
@@ -417,18 +328,19 @@ class IngredientScreenState extends State<IngredientScreen> {
                         return;
                       }
                       setDialogState(() => isLoading = true);
-                      final expiryStr = expiryDate != null
-                          ? DateFormat('yyyy-MM-dd').format(expiryDate!)
+                      final expiryStr = form.expiryDate != null
+                          ? DateFormat('yyyy-MM-dd').format(form.expiryDate!)
                           : null;
-                      final quantity = quantityController.text.trim();
                       try {
-                        final added =
-                            await IngredientApiService.addIngredient(userId, {
-                          'ingredientName': nameController.text.trim(),
-                          'quantity': quantity.isEmpty ? null : quantity,
-                          'expiryDate': expiryStr,
-                          'addedMethod': 'MANUAL',
-                        });
+                        final added = await IngredientApiService.addIngredient(
+                          userId,
+                          {
+                            'ingredientName': form.name,
+                            'quantity': form.quantity.isEmpty ? null : form.quantity,
+                            'expiryDate': expiryStr,
+                            'addedMethod': 'MANUAL',
+                          },
+                        );
                         if (ctx.mounted) Navigator.pop(ctx);
                         _loadIngredients();
                         if (expiryStr != null) {

@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/ingredient.dart';
+import '../widgets/ingredient_form.dart';
 import '../services/auth_service.dart';
 import '../services/ingredient_service.dart';
 import '../services/notification_service.dart';
@@ -143,84 +144,40 @@ class _ScanScreenState extends State<ScanScreen>
 
   void _editItem(int index) {
     final item = _items[index];
-    final nameCtrl = TextEditingController(text: item.name);
-    final qtyCtrl = TextEditingController(text: item.quantity);
-    DateTime? expiry = item.expiryDate;
+    final formKey = GlobalKey<IngredientFormState>();
 
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('재료 정보 수정'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: '재료명',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.edit),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: qtyCtrl,
-                decoration: const InputDecoration(
-                  labelText: '수량 (예: 2개, 500g)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.scale),
-                ),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.calendar_month),
-                label: Text(
-                  expiry == null
-                      ? '유통기한 선택 (선택사항)'
-                      : '유통기한: ${DateFormat('yyyy-MM-dd').format(expiry!)}',
-                ),
-                onPressed: () async {
-                  final picked = await showDatePicker(
-                    context: ctx,
-                    initialDate: DateTime.now(),
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 730)),
-                  );
-                  if (picked != null) {
-                    setDialogState(() => expiry = picked);
-                  }
-                },
-              ),
-            ],
-          ),
-          actions: [
-            if (expiry != null)
-              TextButton(
-                onPressed: () => setDialogState(() => expiry = null),
-                child: const Text('유통기한 제거', style: TextStyle(color: Colors.grey)),
-              ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('취소'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (nameCtrl.text.trim().isEmpty) return;
-                setState(() {
-                  _items[index] = ScanIngredientItem(
-                    name: nameCtrl.text.trim(),
-                    quantity: qtyCtrl.text.trim(),
-                    expiryDate: expiry,
-                    selected: item.selected,
-                  );
-                });
-                Navigator.pop(ctx);
-              },
-              child: const Text('확인'),
-            ),
-          ],
+      builder: (ctx) => AlertDialog(
+        title: const Text('재료 정보 수정'),
+        content: IngredientForm(
+          key: formKey,
+          initialName: item.name,
+          initialQuantity: item.quantity,
+          initialExpiryDate: item.expiryDate,
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final form = formKey.currentState!;
+              if (form.name.isEmpty) return;
+              setState(() {
+                _items[index] = ScanIngredientItem(
+                  name: form.name,
+                  quantity: form.quantity,
+                  expiryDate: form.expiryDate,
+                  selected: item.selected,
+                );
+              });
+              Navigator.pop(ctx);
+            },
+            child: const Text('확인'),
+          ),
+        ],
       ),
     );
   }
