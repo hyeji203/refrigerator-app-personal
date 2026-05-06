@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../models/ingredient.dart';
 import '../services/auth_service.dart';
 import '../services/ingredient_service.dart';
 import '../services/notification_service.dart';
@@ -22,7 +23,7 @@ class _ScanScreenState extends State<ScanScreen>
     with SingleTickerProviderStateMixin {
   Uint8List? _imageBytes;
   ScanStep _step = ScanStep.select;
-  List<_IngredientItem> _items = []; // 인식 결과 (편집 가능)
+  List<ScanIngredientItem> _items = []; // 인식 결과 (편집 가능)
   bool _isSaving = false;
   late AnimationController _pulseCtrl;
   late Animation<double> _pulseAnim;
@@ -74,7 +75,7 @@ class _ScanScreenState extends State<ScanScreen>
 
       setState(() {
         _items = names
-            .map((n) => _IngredientItem(name: n))
+            .map((n) => ScanIngredientItem(name: n))
             .toList();
         _step = ScanStep.review;
       });
@@ -207,7 +208,7 @@ class _ScanScreenState extends State<ScanScreen>
               onPressed: () {
                 if (nameCtrl.text.trim().isEmpty) return;
                 setState(() {
-                  _items[index] = _IngredientItem(
+                  _items[index] = ScanIngredientItem(
                     name: nameCtrl.text.trim(),
                     quantity: qtyCtrl.text.trim(),
                     expiryDate: expiry,
@@ -227,7 +228,7 @@ class _ScanScreenState extends State<ScanScreen>
   // 직접 재료 추가
   void _addManual() {
     setState(() {
-      _items.add(_IngredientItem(name: ''));
+      _items.add(ScanIngredientItem(name: ''));
       _editItem(_items.length - 1);
     });
   }
@@ -710,19 +711,4 @@ class _ScanScreenState extends State<ScanScreen>
       ),
     );
   }
-}
-
-// 재료 아이템 모델 (편집 가능한 상태 포함)
-class _IngredientItem {
-  String name;
-  String quantity;
-  DateTime? expiryDate;
-  bool selected;
-
-  _IngredientItem({
-    required this.name,
-    this.quantity = '',
-    this.expiryDate,
-    this.selected = true,
-  });
 }

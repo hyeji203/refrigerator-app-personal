@@ -1,3 +1,17 @@
+class ScanIngredientItem {
+  String name;
+  String quantity;
+  DateTime? expiryDate;
+  bool selected;
+
+  ScanIngredientItem({
+    required this.name,
+    this.quantity = '',
+    this.expiryDate,
+    this.selected = true,
+  });
+}
+
 class Ingredient {
   final int userIngredientId;
   final String ingredientName;
