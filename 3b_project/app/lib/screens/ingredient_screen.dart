@@ -169,6 +169,179 @@ class IngredientScreenState extends State<IngredientScreen> {
     );
   }
 
+  void _showEditDialog(Ingredient ingredient) {
+    final nameController =
+        TextEditingController(text: ingredient.ingredientName);
+    final quantityController =
+        TextEditingController(text: ingredient.quantity ?? '');
+    DateTime? expiryDate = ingredient.expiryDate != null
+        ? DateTime.tryParse(ingredient.expiryDate!)
+        : null;
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('식재료 수정'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: '재료명 *',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: quantityController,
+                decoration: const InputDecoration(
+                  labelText: '수량 (예: 2개, 500g)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.calendar_today),
+                label: Text(expiryDate == null
+                    ? '유통기한 선택'
+                    : DateFormat('yyyy-MM-dd').format(expiryDate!)),
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                        final picked = await showDatePicker(
+                          context: ctx,
+                          initialDate: expiryDate ?? DateTime.now(),
+                          firstDate: DateTime(2020),
+                          lastDate:
+                              DateTime.now().add(const Duration(days: 365 * 3)),
+                        );
+                        if (picked != null) {
+                          setDialogState(() => expiryDate = picked);
+                        }
+                      },
+              ),
+              if (expiryDate != null)
+                TextButton.icon(
+                  icon: const Icon(Icons.clear, size: 16),
+                  label: const Text('유통기한 삭제'),
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  onPressed: isLoading
+                      ? null
+                      : () => setDialogState(() => expiryDate = null),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      Navigator.pop(ctx);
+                      await _confirmDelete(ingredient);
+                    },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('삭제'),
+            ),
+            const Spacer(),
+            TextButton(
+              onPressed: isLoading ? null : () => Navigator.pop(ctx),
+              child: const Text('취소'),
+            ),
+            ElevatedButton(
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      if (nameController.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('재료명을 입력해주세요')),
+                        );
+                        return;
+                      }
+                      setDialogState(() => isLoading = true);
+                      final expiryStr = expiryDate != null
+                          ? DateFormat('yyyy-MM-dd').format(expiryDate!)
+                          : null;
+                      final quantity = quantityController.text.trim();
+                      try {
+                        await IngredientApiService.updateIngredient(
+                          ingredient.userIngredientId,
+                          {
+                            'ingredientName': nameController.text.trim(),
+                            'quantity': quantity.isEmpty ? null : quantity,
+                            'expiryDate': expiryStr,
+                          },
+                        );
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        _loadIngredients();
+                      } catch (e) {
+                        setDialogState(() => isLoading = false);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('수정 실패: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+              child: isLoading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('저장'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(Ingredient ingredient) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('삭제 확인'),
+        content: Text('${ingredient.ingredientName}을(를) 삭제할까요?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child:
+                const Text('삭제', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      try {
+        await IngredientApiService.deleteIngredient(
+            ingredient.userIngredientId);
+        _loadIngredients();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('삭제 실패: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   void _showAddDialog() {
     final nameController = TextEditingController();
     final quantityController = TextEditingController();
@@ -370,11 +543,14 @@ class IngredientScreenState extends State<IngredientScreen> {
                         motion: const DrawerMotion(),
                         children: [
                           SlidableAction(
-                            onPressed: (_) async {
-                              await IngredientApiService.deleteIngredient(
-                                  ingredient.userIngredientId);
-                              _loadIngredients();
-                            },
+                            onPressed: (_) => _showEditDialog(ingredient),
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            icon: Icons.edit,
+                            label: '수정',
+                          ),
+                          SlidableAction(
+                            onPressed: (_) => _confirmDelete(ingredient),
                             backgroundColor: Colors.red,
                             foregroundColor: Colors.white,
                             icon: Icons.delete,
@@ -385,6 +561,7 @@ class IngredientScreenState extends State<IngredientScreen> {
                       child: Card(
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         child: ListTile(
+                          onTap: () => _showEditDialog(ingredient),
                           leading: CircleAvatar(
                             backgroundColor: ingredient.expiringSoon
                                 ? Colors.red[100]
