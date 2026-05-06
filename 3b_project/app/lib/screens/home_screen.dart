@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'ingredient_screen.dart';
+import 'ingredient/ingredient_screen.dart';
 import 'recipe_screen.dart';
-import 'scan_screen.dart';
+import 'scan/scan_screen.dart';
 import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {

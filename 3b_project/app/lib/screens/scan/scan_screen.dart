@@ -3,18 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../models/ingredient.dart';
-import '../widgets/ingredient_form.dart';
-import '../services/auth_service.dart';
-import '../services/ingredient_service.dart';
-import '../services/notification_service.dart';
-import 'scan/widgets/analyzing_step.dart';
-import 'scan/widgets/done_step.dart';
-import 'scan/widgets/preview_step.dart';
-import 'scan/widgets/review_step.dart';
-import 'scan/widgets/select_step.dart';
 
-// 스캔 화면의 단계
+import '../../models/ingredient.dart';
+import '../../services/auth_service.dart';
+import '../../services/ingredient_service.dart';
+import '../../services/notification_service.dart';
+import '../../widgets/ingredient_form.dart';
+import 'widgets/analyzing_step.dart';
+import 'widgets/done_step.dart';
+import 'widgets/preview_step.dart';
+import 'widgets/review_step.dart';
+import 'widgets/select_step.dart';
+
 enum ScanStep { select, preview, analyzing, review, done }
 
 class ScanScreen extends StatefulWidget {
@@ -28,7 +28,7 @@ class _ScanScreenState extends State<ScanScreen>
     with SingleTickerProviderStateMixin {
   Uint8List? _imageBytes;
   ScanStep _step = ScanStep.select;
-  List<ScanIngredientItem> _items = []; // 인식 결과 (편집 가능)
+  List<ScanIngredientItem> _items = [];
   bool _isSaving = false;
   late AnimationController _pulseCtrl;
   late Animation<double> _pulseAnim;
@@ -77,14 +77,10 @@ class _ScanScreenState extends State<ScanScreen>
 
     try {
       final names = await IngredientApiService.analyzeImage(_imageBytes!);
-
       setState(() {
-        _items = names
-            .map((n) => ScanIngredientItem(name: n))
-            .toList();
+        _items = names.map((n) => ScanIngredientItem(name: n)).toList();
         _step = ScanStep.review;
       });
-
       if (_items.isEmpty) {
         _showInfo('식재료를 인식하지 못했습니다. 사진을 다시 찍어보세요.');
         setState(() => _step = ScanStep.preview);
@@ -103,7 +99,6 @@ class _ScanScreenState extends State<ScanScreen>
       _showInfo('저장할 재료를 하나 이상 선택해주세요.');
       return;
     }
-
     final userId = context.read<AuthService>().userId;
     if (userId == null) return;
     setState(() => _isSaving = true);
@@ -120,10 +115,9 @@ class _ScanScreenState extends State<ScanScreen>
         };
       }).toList();
 
-      final saved = await IngredientApiService.saveIngredientsBatch(
-          userId, payloads);
+      final saved =
+          await IngredientApiService.saveIngredientsBatch(userId, payloads);
 
-      // 유통기한 있는 재료 알림 등록
       for (final ing in saved) {
         if (ing.expiryDate != null) {
           await NotificationService.scheduleExpiryAlert(
@@ -133,7 +127,6 @@ class _ScanScreenState extends State<ScanScreen>
           );
         }
       }
-
       setState(() {
         _step = ScanStep.done;
         _isSaving = false;
@@ -186,7 +179,6 @@ class _ScanScreenState extends State<ScanScreen>
     );
   }
 
-  // 직접 재료 추가
   void _addManual() {
     setState(() {
       _items.add(ScanIngredientItem(name: ''));
@@ -195,12 +187,13 @@ class _ScanScreenState extends State<ScanScreen>
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.red));
   }
 
   void _showInfo(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
   }
 
   void _reset() {
@@ -224,7 +217,8 @@ class _ScanScreenState extends State<ScanScreen>
           if (_step != ScanStep.select && _step != ScanStep.analyzing)
             TextButton(
               onPressed: _reset,
-              child: const Text('다시 촬영', style: TextStyle(color: Colors.white)),
+              child: const Text('다시 촬영',
+                  style: TextStyle(color: Colors.white)),
             ),
         ],
       ),
@@ -262,16 +256,19 @@ class _ScanScreenState extends State<ScanScreen>
               item.selected = v;
             }
           }),
-          onToggleItem: (idx, v) => setState(() => _items[idx].selected = v),
+          onToggleItem: (idx, v) =>
+              setState(() => _items[idx].selected = v),
           onEditItem: (idx) => _editItem(idx),
-          onRemoveItem: (idx) => setState(() => _items.removeAt(idx)),
+          onRemoveItem: (idx) =>
+              setState(() => _items.removeAt(idx)),
           onAddManual: _addManual,
           onSave: _saveAll,
         );
       case ScanStep.done:
         return DoneStep(
-          savedCount:
-              _items.where((i) => i.selected && i.name.isNotEmpty).length,
+          savedCount: _items
+              .where((i) => i.selected && i.name.isNotEmpty)
+              .length,
           onReset: _reset,
         );
     }
