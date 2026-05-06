@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
+import '../widgets/app_loading_indicator.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -121,8 +122,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           child: _isLoading
-                              ? const CircularProgressIndicator(
-                                  color: Colors.white)
+                              ? const AppLoadingIndicator()
                               : const Text(
                                   '로그인',
                                   style: TextStyle(

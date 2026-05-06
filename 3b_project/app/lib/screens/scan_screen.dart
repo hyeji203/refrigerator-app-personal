@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/ingredient_service.dart';
 import '../services/notification_service.dart';
+import '../widgets/app_loading_indicator.dart';
 
 // 스캔 화면의 단계
 enum ScanStep { select, preview, analyzing, review, done }
@@ -625,11 +626,7 @@ class _ScanScreenState extends State<ScanScreen>
             height: 56,
             child: ElevatedButton.icon(
               icon: _isSaving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2))
+                  ? const AppLoadingIndicator()
                   : const Icon(Icons.save_alt),
               label: Text(
                 _isSaving

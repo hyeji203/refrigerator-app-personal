@@ -6,6 +6,8 @@ import '../models/ingredient.dart';
 import '../services/auth_service.dart';
 import '../services/ingredient_service.dart';
 import '../services/notification_service.dart';
+import '../widgets/app_loading_indicator.dart';
+import '../widgets/empty_state_widget.dart';
 
 class IngredientScreen extends StatefulWidget {
   const IngredientScreen({super.key});
@@ -291,11 +293,7 @@ class IngredientScreenState extends State<IngredientScreen> {
                       }
                     },
               child: isLoading
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                  ? const AppLoadingIndicator(size: 16)
                   : const Text('저장'),
             ),
           ],
@@ -455,11 +453,7 @@ class IngredientScreenState extends State<IngredientScreen> {
                       }
                     },
               child: isLoading
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                  ? const AppLoadingIndicator(size: 16)
                   : const Text('추가'),
             ),
           ],
@@ -517,21 +511,10 @@ class IngredientScreenState extends State<IngredientScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _ingredients.isEmpty
-              ? const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.kitchen_outlined,
-                          size: 64, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text('냉장고가 비어있어요!',
-                          style: TextStyle(fontSize: 18, color: Colors.grey)),
-                      SizedBox(height: 8),
-                      Text('연필 버튼으로 재료를 추가하거나\n카메라로 스캔해보세요',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey)),
-                    ],
-                  ),
+              ? const EmptyStateWidget(
+                  icon: Icons.kitchen_outlined,
+                  title: '냉장고가 비어있어요!',
+                  subtitle: '연필 버튼으로 재료를 추가하거나\n카메라로 스캔해보세요',
                 )
               : ListView.builder(
                   padding: const EdgeInsets.all(8),

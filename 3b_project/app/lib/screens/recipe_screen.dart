@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/recipe.dart';
 import '../services/auth_service.dart';
+import '../widgets/app_loading_indicator.dart';
+import '../widgets/empty_state_widget.dart';
 import 'recipe_detail_screen.dart';
 import '../services/api_service.dart';
 
@@ -84,11 +86,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       icon: _isRecommending
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white))
+                          ? const AppLoadingIndicator()
                           : const Icon(Icons.auto_awesome),
                       label: Text(
                           _isRecommending ? 'AI가 레시피를 생성 중...' : 'AI 레시피 추천받기'),
@@ -105,21 +103,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 // 레시피 목록
                 Expanded(
                   child: _recipes.isEmpty
-                      ? const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.restaurant_menu_outlined,
-                                  size: 64, color: Colors.grey),
-                              SizedBox(height: 16),
-                              Text('아직 추천된 레시피가 없어요',
-                                  style: TextStyle(
-                                      fontSize: 16, color: Colors.grey)),
-                              SizedBox(height: 8),
-                              Text('위 버튼을 눌러 AI 레시피를 추천받아보세요!',
-                                  style: TextStyle(color: Colors.grey)),
-                            ],
-                          ),
+                      ? const EmptyStateWidget(
+                          icon: Icons.restaurant_menu_outlined,
+                          title: '아직 추천된 레시피가 없어요',
+                          subtitle: '위 버튼을 눌러 AI 레시피를 추천받아보세요!',
                         )
                       : ListView.builder(
                           padding: const EdgeInsets.symmetric(horizontal: 16),

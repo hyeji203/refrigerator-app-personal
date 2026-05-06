@@ -26,31 +26,9 @@ class AuthService extends ChangeNotifier {
         'email': email,
         'phone': phone,
       });
-
-      final data = response.data;
-      _userId = data['userId'];
-      _loginId = data['loginId'];
-      _username = data['username'];
-      _isLoggedIn = true;
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('token', data['token']);
-      await prefs.setInt('userId', _userId!);
-      await prefs.setString('loginId', _loginId!);
-      await prefs.setString('username', _username!);
-
-      ApiService.setAuthToken(data['token']);
-      notifyListeners();
+      await _saveSessionData(response.data);
     } on DioException catch (e) {
-      final msg = e.response?.data?['message'];
-      if (msg != null) throw Exception(msg);
-      if (e.type == DioExceptionType.connectionError ||
-          e.type == DioExceptionType.unknown) {
-        throw Exception('서버에 연결할 수 없습니다. 백엔드 서버가 실행 중인지 확인해주세요.');
-      }
-      throw Exception('네트워크 오류: ${e.message}');
-    } catch (e) {
-      throw Exception('회원가입 중 오류가 발생했습니다: $e');
+      throw _parseDioException(e, fallback: '회원가입 중 오류가 발생했습니다');
     }
   }
 
@@ -61,32 +39,38 @@ class AuthService extends ChangeNotifier {
         'loginId': loginId,
         'password': password,
       });
-
-      final data = response.data;
-      _userId = data['userId'];
-      _loginId = data['loginId'];
-      _username = data['username'];
-      _isLoggedIn = true;
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('token', data['token']);
-      await prefs.setInt('userId', _userId!);
-      await prefs.setString('loginId', _loginId!);
-      await prefs.setString('username', _username!);
-
-      ApiService.setAuthToken(data['token']);
-      notifyListeners();
+      await _saveSessionData(response.data);
     } on DioException catch (e) {
-      final msg = e.response?.data?['message'];
-      if (msg != null) throw Exception(msg);
-      if (e.type == DioExceptionType.connectionError ||
-          e.type == DioExceptionType.unknown) {
-        throw Exception('서버에 연결할 수 없습니다. 백엔드 서버가 실행 중인지 확인해주세요.');
-      }
-      throw Exception('네트워크 오류: ${e.message}');
-    } catch (e) {
-      throw Exception('로그인 중 오류가 발생했습니다: $e');
+      throw _parseDioException(e, fallback: '로그인 중 오류가 발생했습니다');
     }
+  }
+
+  // 로그인/회원가입 성공 후 세션 데이터를 메모리와 SharedPreferences에 저장
+  Future<void> _saveSessionData(Map<String, dynamic> data) async {
+    _userId = data['userId'];
+    _loginId = data['loginId'];
+    _username = data['username'];
+    _isLoggedIn = true;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('token', data['token']);
+    await prefs.setInt('userId', _userId!);
+    await prefs.setString('loginId', _loginId!);
+    await prefs.setString('username', _username!);
+
+    ApiService.setAuthToken(data['token']);
+    notifyListeners();
+  }
+
+  // DioException을 사람이 읽을 수 있는 Exception으로 변환
+  Exception _parseDioException(DioException e, {required String fallback}) {
+    final msg = e.response?.data?['message'];
+    if (msg != null) return Exception(msg);
+    if (e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.unknown) {
+      return Exception('서버에 연결할 수 없습니다. 백엔드 서버가 실행 중인지 확인해주세요.');
+    }
+    return Exception('$fallback: ${e.message}');
   }
 
   bool _isTokenExpired(String token) {
