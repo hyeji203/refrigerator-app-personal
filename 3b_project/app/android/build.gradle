@@ -5,6 +5,16 @@ allprojects {
     }
 }
 
+subprojects {
+    afterEvaluate { project ->
+        if (project.name == "camera_android_camerax") {
+            project.dependencies {
+                implementation "androidx.concurrent:concurrent-futures:1.2.0"
+            }
+        }
+    }
+}
+
 def newBuildDir = rootProject.layout.buildDirectory.dir("../../build").get()
 rootProject.layout.buildDirectory.value(newBuildDir)
 

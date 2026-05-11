@@ -5,6 +5,9 @@ target/
 src/main/resources/application.properties
 src/main/resources/application-*.properties
 
+# 환경 변수 파일
+.env
+
 # IDE
 .idea/
 *.iml

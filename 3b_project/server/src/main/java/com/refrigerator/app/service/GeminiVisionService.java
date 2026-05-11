@@ -1,6 +1,8 @@
 package com.refrigerator.app.service;
 
 import com.refrigerator.app.dto.ScanResponseDto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -10,6 +12,8 @@ import java.util.*;
 
 @Service
 public class GeminiVisionService {
+
+    private static final Logger log = LoggerFactory.getLogger(GeminiVisionService.class);
 
     @Value("${gemini.api.key}")
     private String geminiApiKey;
@@ -37,7 +41,7 @@ public class GeminiVisionService {
 
             WebClient webClient = webClientBuilder.baseUrl(geminiApiUrl).build();
             Map response = webClient.post()
-                    .uri("/gemini-1.5-flash:generateContent?key=" + geminiApiKey)
+                    .uri("/gemini-2.0-flash:generateContent?key=" + geminiApiKey)
                     .header("Content-Type", "application/json")
                     .bodyValue(requestBody)
                     .retrieve()
@@ -51,6 +55,7 @@ public class GeminiVisionService {
                     .build();
 
         } catch (Exception e) {
+            log.error("Gemini 이미지 분석 오류", e);
             throw new RuntimeException("이미지 분석 중 오류가 발생했습니다: " + e.getMessage());
         }
     }

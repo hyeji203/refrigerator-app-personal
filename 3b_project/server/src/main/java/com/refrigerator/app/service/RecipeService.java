@@ -117,7 +117,7 @@ public class RecipeService {
 
         WebClient webClient = webClientBuilder.baseUrl(geminiApiUrl).build();
         Map response = webClient.post()
-                .uri("/gemini-1.5-flash:generateContent?key=" + geminiApiKey)
+                .uri("/gemini-2.0-flash:generateContent?key=" + geminiApiKey)
                 .header("Content-Type", "application/json")
                 .bodyValue(requestBody)
                 .retrieve()
