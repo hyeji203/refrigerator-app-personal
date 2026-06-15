@@ -8,11 +8,15 @@ class AuthService extends ChangeNotifier {
   int? _userId;
   String? _loginId;
   String? _username;
+  String? _email;
+  String? _phone;
   bool _isLoggedIn = false;
 
   int? get userId => _userId;
   String? get loginId => _loginId;
   String? get username => _username;
+  String? get email => _email;
+  String? get phone => _phone;
   bool get isLoggedIn => _isLoggedIn;
 
   // 회원가입 - 실패 시 예외를 던짐
@@ -50,6 +54,8 @@ class AuthService extends ChangeNotifier {
     _userId = data['userId'];
     _loginId = data['loginId'];
     _username = data['username'];
+    _email = data['email'];
+    _phone = data['phone'];
     _isLoggedIn = true;
 
     final prefs = await SharedPreferences.getInstance();
@@ -57,9 +63,30 @@ class AuthService extends ChangeNotifier {
     await prefs.setInt('userId', _userId!);
     await prefs.setString('loginId', _loginId!);
     await prefs.setString('username', _username!);
+    if (_email != null) await prefs.setString('email', _email!);
+    if (_phone != null) await prefs.setString('phone', _phone!);
 
     ApiService.setAuthToken(data['token']);
     notifyListeners();
+  }
+
+  Future<void> updateProfile({
+    String? username,
+    String? email,
+    String? phone,
+    String? password,
+  }) async {
+    try {
+      final response = await ApiService.dio.patch('/users/$_userId', data: {
+        if (username != null) 'username': username,
+        if (email != null) 'email': email,
+        if (phone != null) 'phone': phone,
+        if (password != null && password.isNotEmpty) 'password': password,
+      });
+      await _saveSessionData(response.data);
+    } on DioException catch (e) {
+      throw _parseDioException(e, fallback: '프로필 수정 중 오류가 발생했습니다');
+    }
   }
 
   // DioException을 사람이 읽을 수 있는 Exception으로 변환
@@ -99,6 +126,8 @@ class AuthService extends ChangeNotifier {
       _userId = prefs.getInt('userId');
       _loginId = prefs.getString('loginId');
       _username = prefs.getString('username');
+      _email = prefs.getString('email');
+      _phone = prefs.getString('phone');
       _isLoggedIn = true;
       ApiService.setAuthToken(token);
       notifyListeners();

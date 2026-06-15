@@ -1,14 +1,17 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/recipe.dart';
 import '../services/auth_service.dart';
 import '../widgets/app_loading_indicator.dart';
 import '../widgets/empty_state_widget.dart';
+import 'cart_screen.dart';
 import 'recipe_detail_screen.dart';
 import '../services/api_service.dart';
 
 class RecipeScreen extends StatefulWidget {
-  const RecipeScreen({super.key});
+  final bool showOnlySaved;
+  const RecipeScreen({super.key, this.showOnlySaved = false});
 
   @override
   State<RecipeScreen> createState() => _RecipeScreenState();
@@ -32,7 +35,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
     try {
       final response = await ApiService.dio.get('/recipes/user/$userId');
       final List data = response.data;
-      setState(() => _recipes = data.map((e) => Recipe.fromJson(e)).toList());
+      final all = data.map((e) => Recipe.fromJson(e)).toList();
+      setState(() => _recipes = widget.showOnlySaved
+          ? all.where((r) => r.isSaved == 1).toList()
+          : all);
     } catch (e) {
       // 오류 처리
     } finally {
@@ -45,7 +51,13 @@ class _RecipeScreenState extends State<RecipeScreen> {
     if (userId == null) return;
     setState(() => _isRecommending = true);
     try {
-      final response = await ApiService.dio.post('/recipes/recommend/$userId');
+      final response = await ApiService.dio.post(
+        '/recipes/recommend/$userId',
+        options: Options(
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 120),
+        ),
+      );
       final List data = response.data;
       final newRecipes = data.map((e) => Recipe.fromJson(e)).toList();
       setState(() => _recipes = [...newRecipes, ..._recipes]);
@@ -67,8 +79,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('추천 레시피'),
+        title: Text(widget.showOnlySaved ? '북마크한 레시피' : '추천 레시피'),
         actions: [
+          const CartIconButton(),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadRecipes,
@@ -79,26 +92,28 @@ class _RecipeScreenState extends State<RecipeScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // 레시피 추천 버튼
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      icon: _isRecommending
-                          ? const AppLoadingIndicator()
-                          : const Icon(Icons.auto_awesome),
-                      label: Text(
-                          _isRecommending ? 'AI가 레시피를 생성 중...' : 'AI 레시피 추천받기'),
-                      onPressed: _isRecommending ? null : _recommendRecipes,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.all(16),
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Colors.white,
+                if (!widget.showOnlySaved)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        icon: _isRecommending
+                            ? const AppLoadingIndicator()
+                            : const Icon(Icons.auto_awesome),
+                        label: Text(_isRecommending
+                            ? 'AI가 레시피를 생성 중...'
+                            : 'AI 레시피 추천받기'),
+                        onPressed: _isRecommending ? null : _recommendRecipes,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.all(16),
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
+                          foregroundColor: Colors.white,
+                        ),
                       ),
                     ),
                   ),
-                ),
 
                 // 레시피 목록
                 Expanded(
