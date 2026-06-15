@@ -41,7 +41,7 @@ public class IngredientService {
 
         UserIngredient ingredient = UserIngredient.builder()
                 .user(user)
-                .ingredientName(dto.getIngredientName())
+                .ingredientName(dto.getIngredientName().trim())
                 .quantity(dto.getQuantity())
                 .expiryDate(dto.getExpiryDate())
                 .addedMethod(dto.getAddedMethod() != null ? dto.getAddedMethod() : "MANUAL")
@@ -103,8 +103,12 @@ public class IngredientService {
     }
 
     private IngredientResponseDto toResponseDto(UserIngredient ingredient) {
+        LocalDate today = LocalDate.now();
+        boolean expired = ingredient.getExpiryDate() != null &&
+                ingredient.getExpiryDate().isBefore(today);
         boolean expiringSoon = ingredient.getExpiryDate() != null &&
-                !ingredient.getExpiryDate().isAfter(LocalDate.now().plusDays(3));
+                !expired &&
+                !ingredient.getExpiryDate().isAfter(today.plusDays(3));
 
         return IngredientResponseDto.builder()
                 .userIngredientId(ingredient.getUserIngredientId())
@@ -115,6 +119,7 @@ public class IngredientService {
                 .status(ingredient.getStatus())
                 .createdAt(ingredient.getCreatedAt())
                 .expiringSoon(expiringSoon)
+                .expired(expired)
                 .build();
     }
 }

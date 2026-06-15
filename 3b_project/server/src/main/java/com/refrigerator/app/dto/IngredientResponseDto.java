@@ -12,12 +12,13 @@ public class IngredientResponseDto {
     private String status;
     private LocalDateTime createdAt;
     private boolean expiringSoon;
+    private boolean expired;
 
     public IngredientResponseDto() {}
 
     public IngredientResponseDto(Long userIngredientId, String ingredientName, String quantity,
                                   LocalDate expiryDate, String addedMethod, String status,
-                                  LocalDateTime createdAt, boolean expiringSoon) {
+                                  LocalDateTime createdAt, boolean expiringSoon, boolean expired) {
         this.userIngredientId = userIngredientId;
         this.ingredientName = ingredientName;
         this.quantity = quantity;
@@ -26,6 +27,7 @@ public class IngredientResponseDto {
         this.status = status;
         this.createdAt = createdAt;
         this.expiringSoon = expiringSoon;
+        this.expired = expired;
     }
 
     public Long getUserIngredientId() { return userIngredientId; }
@@ -44,6 +46,8 @@ public class IngredientResponseDto {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public boolean isExpiringSoon() { return expiringSoon; }
     public void setExpiringSoon(boolean expiringSoon) { this.expiringSoon = expiringSoon; }
+    public boolean isExpired() { return expired; }
+    public void setExpired(boolean expired) { this.expired = expired; }
 
     public static Builder builder() { return new Builder(); }
 
@@ -56,6 +60,7 @@ public class IngredientResponseDto {
         private String status;
         private LocalDateTime createdAt;
         private boolean expiringSoon;
+        private boolean expired;
 
         public Builder userIngredientId(Long userIngredientId) { this.userIngredientId = userIngredientId; return this; }
         public Builder ingredientName(String ingredientName) { this.ingredientName = ingredientName; return this; }
@@ -65,10 +70,11 @@ public class IngredientResponseDto {
         public Builder status(String status) { this.status = status; return this; }
         public Builder createdAt(LocalDateTime createdAt) { this.createdAt = createdAt; return this; }
         public Builder expiringSoon(boolean expiringSoon) { this.expiringSoon = expiringSoon; return this; }
+        public Builder expired(boolean expired) { this.expired = expired; return this; }
 
         public IngredientResponseDto build() {
             return new IngredientResponseDto(userIngredientId, ingredientName, quantity,
-                    expiryDate, addedMethod, status, createdAt, expiringSoon);
+                    expiryDate, addedMethod, status, createdAt, expiringSoon, expired);
         }
     }
 }

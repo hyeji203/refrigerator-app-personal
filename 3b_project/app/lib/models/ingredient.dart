@@ -20,6 +20,7 @@ class Ingredient {
   final String addedMethod;
   final String status;
   final bool expiringSoon;
+  final bool expired;
 
   Ingredient({
     required this.userIngredientId,
@@ -29,6 +30,7 @@ class Ingredient {
     required this.addedMethod,
     required this.status,
     required this.expiringSoon,
+    this.expired = false,
   });
 
   factory Ingredient.fromJson(Map<String, dynamic> json) {
@@ -40,6 +42,7 @@ class Ingredient {
       addedMethod: json['addedMethod'] ?? 'MANUAL',
       status: json['status'] ?? 'ACTIVE',
       expiringSoon: json['expiringSoon'] ?? false,
+      expired: json['expired'] ?? false,
     );
   }
 }
