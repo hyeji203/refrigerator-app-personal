@@ -37,6 +37,19 @@ public class RecipeController {
         return ResponseEntity.ok().build();
     }
 
+    // 조회 기록 저장
+    @PatchMapping("/{recipeId}/view")
+    public ResponseEntity<Void> recordView(@PathVariable Long recipeId) {
+        recipeService.recordView(recipeId);
+        return ResponseEntity.ok().build();
+    }
+
+    // 최근 본 레시피 (최대 10개)
+    @GetMapping("/user/{userId}/history")
+    public ResponseEntity<List<RecipeResponseDto>> getViewHistory(@PathVariable Long userId) {
+        return ResponseEntity.ok(recipeService.getViewHistory(userId));
+    }
+
     // 레시피 삭제
     @DeleteMapping("/{recipeId}")
     public ResponseEntity<Void> deleteRecipe(@PathVariable Long recipeId) {

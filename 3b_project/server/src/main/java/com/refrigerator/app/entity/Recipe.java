@@ -45,6 +45,9 @@ public class Recipe {
     @Column(name = "CREATED_AT")
     private LocalDateTime createdAt;
 
+    @Column(name = "VIEWED_AT")
+    private LocalDateTime viewedAt;
+
     @OneToMany(mappedBy = "recipe", cascade = CascadeType.ALL)
     private List<RecipeIngredient> recipeIngredients;
 
@@ -78,6 +81,8 @@ public class Recipe {
     public void setIsSaved(Integer isSaved) { this.isSaved = isSaved; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getViewedAt() { return viewedAt; }
+    public void setViewedAt(LocalDateTime viewedAt) { this.viewedAt = viewedAt; }
     public List<RecipeIngredient> getRecipeIngredients() { return recipeIngredients; }
     public void setRecipeIngredients(List<RecipeIngredient> recipeIngredients) { this.recipeIngredients = recipeIngredients; }
 

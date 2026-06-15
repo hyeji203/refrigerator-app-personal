@@ -7,6 +7,7 @@ import '../widgets/app_loading_indicator.dart';
 import '../widgets/empty_state_widget.dart';
 import 'cart_screen.dart';
 import 'recipe_detail_screen.dart';
+import 'recipe_history_screen.dart';
 import '../services/api_service.dart';
 
 class RecipeScreen extends StatefulWidget {
@@ -82,6 +83,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
         title: Text(widget.showOnlySaved ? '북마크한 레시피' : '추천 레시피'),
         actions: [
           const CartIconButton(),
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: '레시피 기록',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RecipeHistoryScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadRecipes,

@@ -14,13 +14,15 @@ public class RecipeResponseDto {
     private String youtubeTitle;
     private Integer isSaved;
     private LocalDateTime createdAt;
+    private LocalDateTime viewedAt;
     private List<RecipeIngredientDto> ingredients;
 
     public RecipeResponseDto() {}
 
     public RecipeResponseDto(Long recipeId, String title, String description, Integer cookingTime,
                               String difficulty, Integer servings, String youtubeUrl, String youtubeTitle,
-                              Integer isSaved, LocalDateTime createdAt, List<RecipeIngredientDto> ingredients) {
+                              Integer isSaved, LocalDateTime createdAt, LocalDateTime viewedAt,
+                              List<RecipeIngredientDto> ingredients) {
         this.recipeId = recipeId;
         this.title = title;
         this.description = description;
@@ -31,6 +33,7 @@ public class RecipeResponseDto {
         this.youtubeTitle = youtubeTitle;
         this.isSaved = isSaved;
         this.createdAt = createdAt;
+        this.viewedAt = viewedAt;
         this.ingredients = ingredients;
     }
 
@@ -54,6 +57,8 @@ public class RecipeResponseDto {
     public void setIsSaved(Integer isSaved) { this.isSaved = isSaved; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getViewedAt() { return viewedAt; }
+    public void setViewedAt(LocalDateTime viewedAt) { this.viewedAt = viewedAt; }
     public List<RecipeIngredientDto> getIngredients() { return ingredients; }
     public void setIngredients(List<RecipeIngredientDto> ingredients) { this.ingredients = ingredients; }
 
@@ -70,6 +75,7 @@ public class RecipeResponseDto {
         private String youtubeTitle;
         private Integer isSaved;
         private LocalDateTime createdAt;
+        private LocalDateTime viewedAt;
         private List<RecipeIngredientDto> ingredients;
 
         public Builder recipeId(Long recipeId) { this.recipeId = recipeId; return this; }
@@ -82,11 +88,12 @@ public class RecipeResponseDto {
         public Builder youtubeTitle(String youtubeTitle) { this.youtubeTitle = youtubeTitle; return this; }
         public Builder isSaved(Integer isSaved) { this.isSaved = isSaved; return this; }
         public Builder createdAt(LocalDateTime createdAt) { this.createdAt = createdAt; return this; }
+        public Builder viewedAt(LocalDateTime viewedAt) { this.viewedAt = viewedAt; return this; }
         public Builder ingredients(List<RecipeIngredientDto> ingredients) { this.ingredients = ingredients; return this; }
 
         public RecipeResponseDto build() {
             return new RecipeResponseDto(recipeId, title, description, cookingTime, difficulty,
-                    servings, youtubeUrl, youtubeTitle, isSaved, createdAt, ingredients);
+                    servings, youtubeUrl, youtubeTitle, isSaved, createdAt, viewedAt, ingredients);
         }
     }
 

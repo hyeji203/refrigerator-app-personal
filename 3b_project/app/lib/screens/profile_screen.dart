@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import 'allergy_screen.dart';
 import 'edit_profile_screen.dart';
 import 'cart_screen.dart';
 import 'recipe_screen.dart';
@@ -128,6 +129,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: const Text('프로필 수정'),
             trailing: const Icon(Icons.chevron_right),
             onTap: _goToEditProfile,
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.warning_amber_outlined, color: Color(0xFF4CAF50)),
+            title: const Text('알레르기 관리'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AllergyScreen()),
+            ),
           ),
           const Divider(),
           ListTile(

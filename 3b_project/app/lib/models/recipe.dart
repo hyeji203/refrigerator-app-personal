@@ -9,6 +9,7 @@ class Recipe {
   final String? youtubeTitle;
   final int isSaved;
   final String? createdAt;
+  final String? viewedAt;
   final List<RecipeIngredient> ingredients;
 
   Recipe({
@@ -22,6 +23,7 @@ class Recipe {
     this.youtubeTitle,
     required this.isSaved,
     this.createdAt,
+    this.viewedAt,
     required this.ingredients,
   });
 
@@ -37,6 +39,7 @@ class Recipe {
       youtubeTitle: json['youtubeTitle'],
       isSaved: json['isSaved'] ?? 0,
       createdAt: json['createdAt'],
+      viewedAt: json['viewedAt'],
       ingredients: (json['ingredients'] as List<dynamic>?)
               ?.map((e) => RecipeIngredient.fromJson(e))
               .toList() ??
