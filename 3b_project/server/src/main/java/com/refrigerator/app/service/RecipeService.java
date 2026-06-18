@@ -89,7 +89,16 @@ public class RecipeService {
             }
         }
 
+        trimOldRecipes(userId);
         return results;
+    }
+
+    private void trimOldRecipes(Long userId) {
+        int maxCount = 15;
+        List<Recipe> unsaved = recipeRepository.findByUserUserIdAndIsSavedOrderByCreatedAtAsc(userId, 0);
+        if (unsaved.size() > maxCount) {
+            recipeRepository.deleteAll(unsaved.subList(0, unsaved.size() - maxCount));
+        }
     }
 
     @Transactional(readOnly = true)
