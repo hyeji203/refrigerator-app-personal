@@ -18,4 +18,8 @@ public interface RecipeRepository extends JpaRepository<Recipe, Long> {
     // 최근 조회한 레시피 (viewedAt 기준 내림차순)
     @Query("SELECT r FROM Recipe r WHERE r.user.userId = :userId AND r.viewedAt IS NOT NULL ORDER BY r.viewedAt DESC")
     List<Recipe> findRecentlyViewed(@Param("userId") Long userId, Pageable pageable);
+
+    // 요리 이름 또는 재료로 검색
+    @Query("SELECT r FROM Recipe r WHERE r.user.userId = :userId AND (r.title LIKE :keyword OR r.description LIKE :keyword)")
+    List<Recipe> searchByKeyword(@Param("userId") Long userId, @Param("keyword") String keyword);
 }

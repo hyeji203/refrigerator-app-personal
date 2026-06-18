@@ -50,6 +50,22 @@ public class RecipeController {
         return ResponseEntity.ok(recipeService.getViewHistory(userId));
     }
 
+    // 요리 이름 또는 재료로 검색
+    @GetMapping("/search")
+    public ResponseEntity<List<RecipeResponseDto>> searchRecipes(
+            @RequestParam Long userId,
+            @RequestParam String keyword) {
+        return ResponseEntity.ok(recipeService.searchRecipes(userId, keyword));
+    }
+
+    // 재료 하나로 AI 레시피 생성
+    @PostMapping("/recommend-by-ingredient/{userId}")
+    public ResponseEntity<List<RecipeResponseDto>> recommendByIngredient(
+            @PathVariable Long userId,
+            @RequestParam String ingredient) {
+        return ResponseEntity.ok(recipeService.recommendRecipesByIngredient(userId, ingredient));
+    }
+
     // 레시피 삭제
     @DeleteMapping("/{recipeId}")
     public ResponseEntity<Void> deleteRecipe(@PathVariable Long recipeId) {

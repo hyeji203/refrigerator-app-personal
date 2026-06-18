@@ -16,41 +16,71 @@ class RecipeDetailScreen extends StatefulWidget {
 }
 
 class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
+  late int _isSaved;
+
   @override
   void initState() {
     super.initState();
+    _isSaved = widget.recipe.isSaved;
     ApiService.dio
         .patch('/recipes/${widget.recipe.recipeId}/view')
         .catchError((_) {});
   }
 
-  static ({String ingredients, String steps}) _parseRecipeDetail(
-      String? description) {
-    if (description == null || description.isEmpty) {
-      return (ingredients: '', steps: '');
+  Future<void> _toggleBookmark() async {
+    try {
+      await ApiService.dio.patch('/recipes/${widget.recipe.recipeId}/save');
+      final newState = _isSaved == 1 ? 0 : 1;
+      setState(() => _isSaved = newState);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(newState == 1 ? '북마크가 설정되었습니다' : '북마크가 해제되었습니다'),
+          duration: const Duration(milliseconds: 2500),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('북마크 변경에 실패했습니다')),
+      );
     }
-    String ingredients = '';
-    String steps = '';
+  }
+
+  static List<String> _parseIngredients(String? description) {
+    if (description == null || description.isEmpty) return [];
     for (final line in description.split('\n')) {
       final trimmed = line.trim();
       if (trimmed.startsWith('주재료:')) {
-        ingredients = trimmed.substring('주재료:'.length).trim();
-      } else if (trimmed.startsWith('조리법:')) {
-        String stepsText = trimmed.substring('조리법:'.length).trim();
-        stepsText = stepsText.replaceAllMapped(
-          RegExp(r'\s+(\d+)\.\s+'),
-          (m) => '\n${m.group(1)}. ',
-        );
-        steps = stepsText.trim();
+        return trimmed
+            .substring('주재료:'.length)
+            .split(',')
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
       }
     }
-    return (ingredients: ingredients, steps: steps);
+    return [];
+  }
+
+  static List<String> _parseSteps(String? description) {
+    if (description == null || description.isEmpty) return [];
+    for (final line in description.split('\n')) {
+      final trimmed = line.trim();
+      if (trimmed.startsWith('조리법:')) {
+        final stepsText = trimmed.substring('조리법:'.length).trim();
+        final parts = stepsText.split(RegExp(r'\s*\d+\.\s+'));
+        return parts.where((s) => s.trim().isNotEmpty).map((s) => s.trim()).toList();
+      }
+    }
+    return [];
   }
 
   @override
   Widget build(BuildContext context) {
     final recipe = widget.recipe;
-    final parsed = _parseRecipeDetail(recipe.description);
+    final ingredients = _parseIngredients(recipe.description);
+    final steps = _parseSteps(recipe.description);
     return Scaffold(
       appBar: AppBar(
         title: Text(recipe.title),
@@ -58,14 +88,10 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
           const CartIconButton(),
           IconButton(
             icon: Icon(
-              recipe.isSaved == 1 ? Icons.bookmark : Icons.bookmark_outline,
-              color: recipe.isSaved == 1 ? Colors.amber : null,
+              _isSaved == 1 ? Icons.bookmark : Icons.bookmark_outline,
+              color: _isSaved == 1 ? Colors.amber : null,
             ),
-            onPressed: () async {
-              await ApiService.dio.patch('/recipes/${recipe.recipeId}/save');
-              if (!mounted) return;
-              Navigator.pop(context);
-            },
+            onPressed: _toggleBookmark,
           ),
         ],
       ),
@@ -167,48 +193,98 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                   ],
 
                   // 필요 재료
-                  if (parsed.ingredients.isNotEmpty) ...[
+                  if (ingredients.isNotEmpty) ...[
                     const Text('필요 재료',
                         style: TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: Colors.orange[50],
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: Colors.orange.shade200),
                       ),
-                      child: Text(
-                        parsed.ingredients,
-                        style: const TextStyle(
-                            fontSize: 14, height: 1.6, color: Colors.black87),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: ingredients
+                            .map((ing) => Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 4),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('• ',
+                                          style: TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.deepOrange,
+                                              fontWeight: FontWeight.bold)),
+                                      Expanded(
+                                        child: Text(ing,
+                                            style: const TextStyle(
+                                                fontSize: 14, height: 1.5)),
+                                      ),
+                                    ],
+                                  ),
+                                ))
+                            .toList(),
                       ),
                     ),
                     const SizedBox(height: 20),
                   ],
 
                   // 조리법
-                  if (parsed.steps.isNotEmpty) ...[
+                  if (steps.isNotEmpty) ...[
                     const Text('조리법',
                         style: TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.blue[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue.shade200),
-                      ),
-                      child: Text(
-                        parsed.steps,
-                        style: const TextStyle(
-                            fontSize: 14, height: 1.8, color: Colors.black87),
-                      ),
-                    ),
+                    const SizedBox(height: 10),
+                    ...steps.asMap().entries.map((entry) {
+                      final idx = entry.key + 1;
+                      final step = entry.value;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 26,
+                              height: 26,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text('$idx',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue[50],
+                                  borderRadius: BorderRadius.circular(8),
+                                  border:
+                                      Border.all(color: Colors.blue.shade100),
+                                ),
+                                child: Text(step,
+                                    style: const TextStyle(
+                                        fontSize: 14, height: 1.6)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                   ],
                 ],
               ),

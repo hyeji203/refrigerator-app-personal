@@ -455,9 +455,12 @@ class IngredientScreenState extends State<IngredientScreen> {
                 ),
             ],
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadIngredients,
+          GestureDetector(
+            onTap: _loadIngredients,
+            child: const Padding(
+              padding: EdgeInsets.fromLTRB(8, 8, 20, 8),
+              child: Icon(Icons.refresh),
+            ),
           ),
         ],
       ),
