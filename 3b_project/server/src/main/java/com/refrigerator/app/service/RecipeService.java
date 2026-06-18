@@ -95,7 +95,7 @@ public class RecipeService {
 
     private void trimOldRecipes(Long userId) {
         int maxCount = 15;
-        List<Recipe> unsaved = recipeRepository.findByUserUserIdAndIsSavedOrderByCreatedAtAsc(userId, 0);
+        List<Recipe> unsaved = recipeRepository.findUnsavedOrderByCreatedAtAsc(userId);
         if (unsaved.size() > maxCount) {
             recipeRepository.deleteAll(unsaved.subList(0, unsaved.size() - maxCount));
         }
