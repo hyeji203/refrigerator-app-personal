@@ -101,8 +101,9 @@ public class RecipeService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<RecipeResponseDto> getUserRecipes(Long userId) {
+        trimOldRecipes(userId);
         return recipeRepository.findByUserUserIdOrderByCreatedAtDesc(userId)
                 .stream()
                 .map(this::toResponseDto)
