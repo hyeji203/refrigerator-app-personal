@@ -175,7 +175,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                     ElevatedButton.icon(
                       icon: const Icon(Icons.play_circle_filled,
                           color: Colors.white),
-                      label: const Text('YouTube에서 영상 보기'),
+                      label: const Text('같은 요리 참고 영상 보기'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                         foregroundColor: Colors.white,
@@ -188,6 +188,30 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                               mode: LaunchMode.externalApplication);
                         }
                       },
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.amber[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.amber.shade300),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.info_outline,
+                              size: 16, color: Colors.orange),
+                          SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '아래 재료·조리법은 내 냉장고 재료 기반으로 AI가 맞춤 생성한 것입니다. 영상의 재료와 다를 수 있습니다.',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.orange),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 20),
                   ],

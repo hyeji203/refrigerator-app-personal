@@ -79,7 +79,7 @@ public class RecipeService {
                         .description(description)
                         .youtubeUrl(yt != null && yt.get("videoId") != null
                                 ? "https://www.youtube.com/watch?v=" + yt.get("videoId") : null)
-                        .youtubeTitle(yt != null ? yt.getOrDefault("channelTitle", "") : "")
+                        .youtubeTitle(yt != null ? yt.getOrDefault("videoTitle", "") : "")
                         .build();
 
                 recipeRepository.save(recipe);
@@ -169,7 +169,7 @@ public class RecipeService {
                         .description(description)
                         .youtubeUrl(yt != null && yt.get("videoId") != null
                                 ? "https://www.youtube.com/watch?v=" + yt.get("videoId") : null)
-                        .youtubeTitle(yt != null ? yt.getOrDefault("channelTitle", "") : "")
+                        .youtubeTitle(yt != null ? yt.getOrDefault("videoTitle", "") : "")
                         .build();
 
                 recipeRepository.save(recipe);
@@ -185,8 +185,12 @@ public class RecipeService {
     private List<Map<String, String>> callGeminiForIngredient(String ingredient) {
         try {
             String prompt = String.format(
-                    "'%s'을(를) 주재료로 만들 수 있는 한국 요리 3가지의 상세 레시피를 아래 형식으로만 작성하세요.\n" +
-                    "각 레시피는 정확히 3줄(이름, 주재료, 조리법), 레시피 사이에만 빈 줄 하나:\n\n" +
+                    "'%s'을(를) 주재료로 한 한국 가정식 요리 3가지를 추천해주세요.\n\n" +
+                    "중요 규칙:\n" +
+                    "- 실제 한국 가정에서 자주 만드는 현실적인 요리만 추천하세요.\n" +
+                    "- 주재료와 맛·조리 방식이 자연스럽게 어울리는 재료 3~5가지만 사용하세요.\n" +
+                    "- 부족한 재료는 소금, 간장, 참기름 등 기본 양념류로 보완해도 됩니다.\n\n" +
+                    "아래 형식으로만 작성하세요. 각 레시피는 정확히 3줄, 레시피 사이에만 빈 줄 하나:\n\n" +
                     "요리이름\n" +
                     "주재료: 재료1 분량, 재료2 분량, 재료3 분량, 재료4 분량, 재료5 분량\n" +
                     "조리법: 1. 단계 2. 단계 3. 단계 4. 단계 5. 단계\n\n" +
@@ -225,8 +229,13 @@ public class RecipeService {
             String ingredientList = String.join(", ", ingredients);
             String prompt = String.format(
                     "냉장고에 다음 재료들이 있습니다: %s\n\n" +
-                    "이 재료들로 만들 수 있는 한국 요리 3가지의 상세 레시피를 아래 형식으로만 작성하세요.\n" +
-                    "각 레시피는 정확히 3줄(이름, 주재료, 조리법), 레시피 사이에만 빈 줄 하나:\n\n" +
+                    "이 재료 중 실제로 잘 어울리는 것들만 골라 한국 가정식 요리 3가지를 추천해주세요.\n\n" +
+                    "중요 규칙:\n" +
+                    "- 냉장고 재료 전부를 한 요리에 억지로 넣지 마세요. 맛과 요리 방식이 자연스럽게 어울리는 재료만 사용하세요.\n" +
+                    "- 실제 한국 가정에서 자주 만드는 현실적인 요리만 추천하세요 (예: 김치찌개에 방울토마토 X).\n" +
+                    "- 각 요리마다 레시피에 적합한 재료 3~5가지만 선택하세요.\n" +
+                    "- 부족한 재료는 소금, 간장, 참기름 등 기본 양념류로 보완해도 됩니다.\n\n" +
+                    "아래 형식으로만 작성하세요. 각 레시피는 정확히 3줄, 레시피 사이에만 빈 줄 하나:\n\n" +
                     "요리이름\n" +
                     "주재료: 재료1 분량, 재료2 분량, 재료3 분량, 재료4 분량, 재료5 분량\n" +
                     "조리법: 1. 단계 2. 단계 3. 단계 4. 단계 5. 단계\n\n" +
@@ -307,9 +316,11 @@ public class RecipeService {
                     .uri(uriBuilder -> uriBuilder
                             .path("/search")
                             .queryParam("part", "snippet")
-                            .queryParam("q", recipeTitle + " 레시피")
+                            .queryParam("q", recipeTitle + " 만들기 레시피")
                             .queryParam("type", "video")
                             .queryParam("maxResults", "1")
+                            .queryParam("relevanceLanguage", "ko")
+                            .queryParam("regionCode", "KR")
                             .queryParam("key", youtubeApiKey)
                             .build())
                     .retrieve()
