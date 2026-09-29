@@ -144,16 +144,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           style: TextStyle(color: Color(0xFF4CAF50)),
                         ),
                       ),
-                      const Divider(),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pushReplacementNamed(context, '/home');
-                        },
-                        child: const Text(
-                          '테스트',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ),
                     ],
                   ),
                 ),

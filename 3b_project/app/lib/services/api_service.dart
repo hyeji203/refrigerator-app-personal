@@ -2,8 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:8080/api'; // 크롬/Windows 데스크탑
-  // 실제 기기 테스트: 'http://172.22.34.79:8080/api' (PC IP 확인 후 변경)
+  static const String baseUrl = 'http://192.168.229.203:8080/api'; // 실제 기기 테스트 (PC IP)
+  // 크롬/Windows 데스크탑: 'http://localhost:8080/api'
   // Android 에뮬레이터: 'http://10.0.2.2:8080/api'
 
   static final Dio _dio = _createDio(connectTimeout: const Duration(seconds: 30));

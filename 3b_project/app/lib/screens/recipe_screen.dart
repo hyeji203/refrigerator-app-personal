@@ -51,7 +51,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         queryParameters: {'ingredient': keyword.trim()},
         options: Options(
           sendTimeout: const Duration(seconds: 60),
-          receiveTimeout: const Duration(seconds: 120),
+          receiveTimeout: const Duration(minutes: 3),
         ),
       );
       final List data = response.data;
@@ -117,7 +117,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         '/recipes/recommend/$userId',
         options: Options(
           sendTimeout: const Duration(seconds: 60),
-          receiveTimeout: const Duration(seconds: 120),
+          receiveTimeout: const Duration(minutes: 3),
         ),
       );
       final List data = response.data;

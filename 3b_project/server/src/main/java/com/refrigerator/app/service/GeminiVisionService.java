@@ -39,9 +39,9 @@ public class GeminiVisionService {
 
             Map<String, Object> requestBody = buildVisionRequest(base64Image, mimeType);
 
-            WebClient webClient = webClientBuilder.baseUrl(geminiApiUrl).build();
+            WebClient webClient = webClientBuilder.build();
             Map response = webClient.post()
-                    .uri("/gemini-2.0-flash:generateContent?key=" + geminiApiKey)
+                    .uri(geminiApiUrl + "/gemini-3-flash-preview:generateContent?key=" + geminiApiKey)
                     .header("Content-Type", "application/json")
                     .bodyValue(requestBody)
                     .retrieve()
@@ -54,6 +54,10 @@ public class GeminiVisionService {
                     .recognizedIngredients(ingredients)
                     .build();
 
+        } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+            String body = e.getResponseBodyAsString();
+            log.error("Gemini API 오류 - Status: {}, Body: {}", e.getStatusCode(), body);
+            throw new RuntimeException(e.getStatusCode() + " - " + body);
         } catch (Exception e) {
             log.error("Gemini 이미지 분석 오류", e);
             throw new RuntimeException("이미지 분석 중 오류가 발생했습니다: " + e.getMessage());

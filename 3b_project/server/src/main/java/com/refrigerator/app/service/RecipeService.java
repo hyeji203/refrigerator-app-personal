@@ -206,14 +206,14 @@ public class RecipeService {
             Map<String, Object> content = Map.of("parts", List.of(textPart));
             Map<String, Object> requestBody = Map.of("contents", List.of(content));
 
-            WebClient webClient = webClientBuilder.baseUrl(geminiApiUrl).build();
+            WebClient webClient = webClientBuilder.build();
             Map response = webClient.post()
-                    .uri("/gemini-2.5-flash:generateContent?key=" + geminiApiKey)
+                    .uri(geminiApiUrl + "/gemini-3-flash-preview:generateContent?key=" + geminiApiKey)
                     .header("Content-Type", "application/json")
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(Map.class)
-                    .timeout(Duration.ofSeconds(60))
+                    .timeout(Duration.ofSeconds(120))
                     .block();
 
             String text = extractTextFromGeminiResponse(response);
@@ -251,14 +251,14 @@ public class RecipeService {
             Map<String, Object> content = Map.of("parts", List.of(textPart));
             Map<String, Object> requestBody = Map.of("contents", List.of(content));
 
-            WebClient webClient = webClientBuilder.baseUrl(geminiApiUrl).build();
+            WebClient webClient = webClientBuilder.build();
             Map response = webClient.post()
-                    .uri("/gemini-2.5-flash:generateContent?key=" + geminiApiKey)
+                    .uri(geminiApiUrl + "/gemini-3-flash-preview:generateContent?key=" + geminiApiKey)
                     .header("Content-Type", "application/json")
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(Map.class)
-                    .timeout(Duration.ofSeconds(60))
+                    .timeout(Duration.ofSeconds(120))
                     .block();
 
             String text = extractTextFromGeminiResponse(response);

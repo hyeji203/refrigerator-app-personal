@@ -92,26 +92,33 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // 알레르기 저장
+  // 알레르기 저장 (DB 연동)
   Future<void> saveAllergies(String allergies) async {
     try {
+      await ApiService.dio
+          .post('/users/$_userId/allergies', data: {'allergies': allergies});
       _allergies = allergies;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('allergies', allergies);
       notifyListeners();
-    } catch (e) {
-      throw Exception('알레르기 저장 중 오류가 발생했습니다');
+    } on DioException catch (e) {
+      throw _parseDioException(e, fallback: '알레르기 저장 중 오류가 발생했습니다');
     }
   }
 
-  // 알레르기 불러오기
+  // 알레르기 불러오기 (DB 연동)
   Future<void> loadAllergies() async {
     try {
+      final response = await ApiService.dio.get('/users/$_userId/allergies');
+      _allergies = response.data['allergies'] as String?;
+      final prefs = await SharedPreferences.getInstance();
+      if (_allergies != null) await prefs.setString('allergies', _allergies!);
+      notifyListeners();
+    } on DioException catch (e) {
+      // 서버 오류 시 로컬 캐시 사용
       final prefs = await SharedPreferences.getInstance();
       _allergies = prefs.getString('allergies');
       notifyListeners();
-    } catch (e) {
-      throw Exception('알레르기 불러오기 중 오류가 발생했습니다');
     }
   }
 
@@ -174,6 +181,8 @@ class AuthService extends ChangeNotifier {
       _isLoggedIn = true;
       ApiService.setAuthToken(token);
       notifyListeners();
+      // 서버에서 최신 알레르기 정보 동기화
+      await loadAllergies();
     } else if (token != null) {
       await _clearAuthPrefs();
     }

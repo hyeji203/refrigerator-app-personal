@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -76,7 +77,9 @@ class _ScanScreenState extends State<ScanScreen>
     setState(() => _step = ScanStep.analyzing);
 
     try {
-      final names = await IngredientApiService.analyzeImage(_imageBytes!);
+      final userId = context.read<AuthService>().userId;
+      final names =
+          await IngredientApiService.analyzeImage(_imageBytes!, userId: userId);
       setState(() {
         _items = names.map((n) => ScanIngredientItem(name: n)).toList();
         _step = ScanStep.review;
@@ -87,7 +90,13 @@ class _ScanScreenState extends State<ScanScreen>
       }
     } catch (e) {
       setState(() => _step = ScanStep.preview);
-      _showError('분석 중 오류가 발생했습니다: $e');
+      String msg = '분석 중 오류가 발생했습니다';
+      if (e is DioException) {
+        msg = e.response?.data?['message'] ?? e.message ?? msg;
+      } else {
+        msg = '$e';
+      }
+      _showError(msg);
     }
   }
 
@@ -192,8 +201,7 @@ class _ScanScreenState extends State<ScanScreen>
   }
 
   void _showInfo(String msg) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   void _reset() {
@@ -217,8 +225,7 @@ class _ScanScreenState extends State<ScanScreen>
           if (_step != ScanStep.select && _step != ScanStep.analyzing)
             TextButton(
               onPressed: _reset,
-              child: const Text('다시 촬영',
-                  style: TextStyle(color: Colors.white)),
+              child: const Text('다시 촬영', style: TextStyle(color: Colors.white)),
             ),
         ],
       ),
@@ -256,19 +263,16 @@ class _ScanScreenState extends State<ScanScreen>
               item.selected = v;
             }
           }),
-          onToggleItem: (idx, v) =>
-              setState(() => _items[idx].selected = v),
+          onToggleItem: (idx, v) => setState(() => _items[idx].selected = v),
           onEditItem: (idx) => _editItem(idx),
-          onRemoveItem: (idx) =>
-              setState(() => _items.removeAt(idx)),
+          onRemoveItem: (idx) => setState(() => _items.removeAt(idx)),
           onAddManual: _addManual,
           onSave: _saveAll,
         );
       case ScanStep.done:
         return DoneStep(
-          savedCount: _items
-              .where((i) => i.selected && i.name.isNotEmpty)
-              .length,
+          savedCount:
+              _items.where((i) => i.selected && i.name.isNotEmpty).length,
           onReset: _reset,
         );
     }
