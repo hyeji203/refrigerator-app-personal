@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
+import '../utils/error_message.dart';
 
 class AuthService extends ChangeNotifier {
   int? _userId;
@@ -36,6 +37,20 @@ class AuthService extends ChangeNotifier {
     } on DioException catch (e) {
       throw _parseDioException(e, fallback: '회원가입 중 오류가 발생했습니다');
     }
+  }
+
+  // 아이디 중복 확인 (true = 사용 가능)
+  Future<bool> isLoginIdAvailable(String loginId) async {
+    final response = await ApiService.dio
+        .get('/auth/check-id', queryParameters: {'loginId': loginId});
+    return response.data['available'] == true;
+  }
+
+  // 이메일 중복 확인 (true = 사용 가능)
+  Future<bool> isEmailAvailable(String email) async {
+    final response = await ApiService.dio
+        .get('/auth/check-email', queryParameters: {'email': email});
+    return response.data['available'] == true;
   }
 
   // 로그인
@@ -141,13 +156,7 @@ class AuthService extends ChangeNotifier {
 
   // DioException 처리
   Exception _parseDioException(DioException e, {required String fallback}) {
-    final msg = e.response?.data?['message'];
-    if (msg != null) return Exception(msg);
-    if (e.type == DioExceptionType.connectionError ||
-        e.type == DioExceptionType.unknown) {
-      return Exception('서버에 연결할 수 없습니다. 백엔드 서버가 실행 중인지 확인해주세요.');
-    }
-    return Exception('$fallback: ${e.message}');
+    return Exception(friendlyErrorMessage(e, fallback: fallback));
   }
 
   bool _isTokenExpired(String token) {

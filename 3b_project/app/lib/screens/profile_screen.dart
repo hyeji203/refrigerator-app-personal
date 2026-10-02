@@ -132,8 +132,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const Divider(),
           ListTile(
-            leading: const Icon(Icons.warning_amber_outlined, color: Color(0xFF4CAF50)),
+            leading: const Icon(Icons.warning_amber_outlined,
+                color: Color(0xFF4CAF50)),
             title: const Text('알레르기 관리'),
+            subtitle: Text(
+              (auth.allergies ?? '').trim().isEmpty
+                  ? '등록하면 레시피 추천에서 제외돼요'
+                  : auth.allergies!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12),
+            ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.push(
               context,
@@ -145,8 +154,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text('로그아웃'),
             onTap: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('로그아웃할까요?'),
+                  content: const Text('다시 이용하려면 아이디와 비밀번호를 입력해야 해요.'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('취소'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                      child: const Text('로그아웃'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed != true) return;
               await auth.logout();
-              if (!mounted) return;
+              if (!context.mounted) return;
               Navigator.pushReplacementNamed(context, '/login');
             },
           ),

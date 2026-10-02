@@ -13,9 +13,13 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _loginIdController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  // 로그인 실패 사유 (비밀번호 칸 아래에 표시, 입력을 고치면 지움)
+  String? _loginError;
 
   @override
   void dispose() {
@@ -25,6 +29,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
+    FocusScope.of(context).unfocus();
+    setState(() => _loginError = null);
+    if (!_formKey.currentState!.validate()) return;
+
     setState(() => _isLoading = true);
     try {
       final authService = context.read<AuthService>();
@@ -42,12 +50,8 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: Colors.red,
-          ),
-        );
+        setState(
+            () => _loginError = e.toString().replaceFirst('Exception: ', ''));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -88,63 +92,96 @@ class _LoginScreenState extends State<LoginScreen> {
                 elevation: 8,
                 child: Padding(
                   padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      TextField(
-                        controller: _loginIdController,
-                        keyboardType: TextInputType.text,
-                        decoration: const InputDecoration(
-                          labelText: '아이디',
-                          prefixIcon: Icon(Icons.person),
-                          border: OutlineInputBorder(),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: _loginIdController,
+                          keyboardType: TextInputType.text,
+                          textInputAction: TextInputAction.next,
+                          validator: (v) => (v?.trim() ?? '').isEmpty
+                              ? '아이디를 입력해 주세요.'
+                              : null,
+                          onChanged: (_) {
+                            if (_loginError != null) {
+                              setState(() => _loginError = null);
+                            }
+                          },
+                          decoration: const InputDecoration(
+                            labelText: '아이디',
+                            prefixIcon: Icon(Icons.person),
+                            border: OutlineInputBorder(),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _passwordController,
-                        obscureText: true,
-                        decoration: const InputDecoration(
-                          labelText: '비밀번호',
-                          prefixIcon: Icon(Icons.lock),
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _login,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF4CAF50),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          textInputAction: TextInputAction.done,
+                          validator: (v) => (v?.trim() ?? '').isEmpty
+                              ? '비밀번호를 입력해 주세요.'
+                              : null,
+                          onChanged: (_) {
+                            if (_loginError != null) {
+                              setState(() => _loginError = null);
+                            }
+                          },
+                          onFieldSubmitted: (_) {
+                            if (!_isLoading) _login();
+                          },
+                          decoration: InputDecoration(
+                            labelText: '비밀번호',
+                            prefixIcon: const Icon(Icons.lock),
+                            border: const OutlineInputBorder(),
+                            errorText: _loginError,
+                            errorMaxLines: 2,
+                            suffixIcon: IconButton(
+                              icon: Icon(_obscurePassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility),
+                              onPressed: () => setState(
+                                  () => _obscurePassword = !_obscurePassword),
                             ),
                           ),
-                          child: _isLoading
-                              ? const AppLoadingIndicator()
-                              : const Text(
-                                  '로그인',
-                                  style: TextStyle(
-                                      fontSize: 16, color: Colors.white),
-                                ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const RegisterScreen()),
-                          );
-                        },
-                        child: const Text(
-                          '계정이 없으신가요? 회원가입',
-                          style: TextStyle(color: Color(0xFF4CAF50)),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _login,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF4CAF50),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: _isLoading
+                                ? const AppLoadingIndicator()
+                                : const Text(
+                                    '로그인',
+                                    style: TextStyle(
+                                        fontSize: 16, color: Colors.white),
+                                  ),
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const RegisterScreen()),
+                            );
+                          },
+                          child: const Text(
+                            '계정이 없으신가요? 회원가입',
+                            style: TextStyle(color: Color(0xFF4CAF50)),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

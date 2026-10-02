@@ -4,18 +4,24 @@ class EmptyStateWidget extends StatelessWidget {
   final IconData icon;
   final String title;
   final String? subtitle;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   const EmptyStateWidget({
     super.key,
     required this.icon,
     required this.title,
     this.subtitle,
+    this.actionLabel,
+    this.onAction,
   });
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon, size: 64, color: Colors.grey),
@@ -29,7 +35,16 @@ class EmptyStateWidget extends StatelessWidget {
               style: const TextStyle(color: Colors.grey),
             ),
           ],
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.refresh),
+              label: Text(actionLabel!),
+              onPressed: onAction,
+            ),
+          ],
         ],
+        ),
       ),
     );
   }

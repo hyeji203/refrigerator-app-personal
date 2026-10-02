@@ -35,6 +35,24 @@ public class AuthController {
     }
 
     /**
+     * GET /api/auth/check-id?loginId=xxx
+     * 아이디 중복 확인 → { "available": true/false }
+     */
+    @GetMapping("/check-id")
+    public ResponseEntity<?> checkLoginId(@RequestParam String loginId) {
+        return ResponseEntity.ok(Map.of("available", authService.isLoginIdAvailable(loginId.trim())));
+    }
+
+    /**
+     * GET /api/auth/check-email?email=xxx
+     * 이메일 중복 확인 → { "available": true/false }
+     */
+    @GetMapping("/check-email")
+    public ResponseEntity<?> checkEmail(@RequestParam String email) {
+        return ResponseEntity.ok(Map.of("available", authService.isEmailAvailable(email.trim())));
+    }
+
+    /**
      * POST /api/auth/login
      * 로그인
      */

@@ -9,18 +9,21 @@ import 'cart_screen.dart';
 import 'recipe_detail_screen.dart';
 import 'recipe_history_screen.dart';
 import '../services/api_service.dart';
+import '../utils/allergy.dart';
+import '../utils/error_message.dart';
 
 class RecipeScreen extends StatefulWidget {
   final bool showOnlySaved;
   const RecipeScreen({super.key, this.showOnlySaved = false});
 
   @override
-  State<RecipeScreen> createState() => _RecipeScreenState();
+  State<RecipeScreen> createState() => RecipeScreenState();
 }
 
-class _RecipeScreenState extends State<RecipeScreen> {
+class RecipeScreenState extends State<RecipeScreen> {
   List<Recipe> _recipes = [];
   bool _isLoading = false;
+  String? _loadError; // 목록 로드 실패 시 사용자용 오류 문장
   bool _isRecommending = false;
 
   bool _isSearching = false;
@@ -65,13 +68,18 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   "'${keyword.trim()}' 레시피 ${_searchResults.length}개를 찾았어요!")),
         );
       }
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('레시피 검색 중 오류가 발생했어요')),
+        SnackBar(
+          content: Text(friendlyErrorMessage(e,
+              fallback: '레시피를 찾지 못했어요. 잠시 후 다시 시도해 주세요.')),
+          action: SnackBarAction(
+              label: '다시 시도', onPressed: () => _searchRecipes(keyword)),
+        ),
       );
     } finally {
-      setState(() => _isSearchLoading = false);
+      if (mounted) setState(() => _isSearchLoading = false);
     }
   }
 
@@ -90,10 +98,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
     });
   }
 
+  Future<void> loadRecipes() => _loadRecipes();
+
   Future<void> _loadRecipes() async {
     final userId = context.read<AuthService>().userId;
     if (userId == null) return;
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
     try {
       final response = await ApiService.dio.get('/recipes/user/$userId');
       final List data = response.data;
@@ -102,9 +115,11 @@ class _RecipeScreenState extends State<RecipeScreen> {
           ? all.where((r) => r.isSaved == 1).toList()
           : all);
     } catch (e) {
-      // 오류 처리
+      // 실패를 빈 목록으로 보여주지 않고 오류 화면으로 구분
+      setState(() => _loadError = friendlyErrorMessage(e,
+          fallback: '레시피 목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'));
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -124,16 +139,33 @@ class _RecipeScreenState extends State<RecipeScreen> {
       final newRecipes = data.map((e) => Recipe.fromJson(e)).toList();
       setState(() => _recipes = [...newRecipes, ..._recipes]);
       if (!mounted) return;
+      final allergies =
+          parseAllergies(context.read<AuthService>().allergies);
+      final String message;
+      if (newRecipes.isEmpty) {
+        message = allergies.isEmpty
+            ? '추천할 수 있는 레시피가 없어요. 냉장고에 재료를 추가해 보세요.'
+            : '알레르기 재료를 제외하니 추천할 레시피가 없어요. 냉장고에 재료를 더 추가해 보세요.';
+      } else {
+        message = allergies.isEmpty
+            ? '새로운 레시피를 추천받았어요!'
+            : '알레르기 재료(${allergies.join(', ')})를 빼고 추천했어요!';
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('새로운 레시피를 추천받았어요!')),
+        SnackBar(content: Text(message)),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('레시피 추천 중 오류: $e')),
+        SnackBar(
+          content: Text(friendlyErrorMessage(e,
+              fallback: '레시피를 추천받지 못했어요. 잠시 후 다시 시도해 주세요.')),
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(label: '다시 시도', onPressed: _recommendRecipes),
+        ),
       );
     } finally {
-      setState(() => _isRecommending = false);
+      if (mounted) setState(() => _isRecommending = false);
     }
   }
 
@@ -257,7 +289,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
                     // 레시피 목록
                     Expanded(
-                      child: _recipes.isEmpty
+                      child: _loadError != null
+                          ? EmptyStateWidget(
+                              icon: Icons.cloud_off_outlined,
+                              title: '레시피를 불러오지 못했어요',
+                              subtitle: _loadError,
+                              actionLabel: '다시 시도',
+                              onAction: _loadRecipes,
+                            )
+                          : _recipes.isEmpty
                           ? const EmptyStateWidget(
                               icon: Icons.restaurant_menu_outlined,
                               title: '아직 추천된 레시피가 없어요',
@@ -271,11 +311,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
   }
 
   Widget _buildRecipeList(List<Recipe> recipes) {
+    final allergies = parseAllergies(context.watch<AuthService>().allergies);
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: recipes.length,
       itemBuilder: (context, index) {
         final recipe = recipes[index];
+        final recipeAllergens =
+            matchRecipeAllergens(recipe.ingredientLines, allergies);
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           child: ListTile(
@@ -301,6 +344,24 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     ],
                   ],
                 ),
+                if (recipeAllergens.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded,
+                            color: Colors.red[700], size: 16),
+                        Expanded(
+                          child: Text(
+                              '  알레르기 주의: ${recipeAllergens.join(', ')}',
+                              style: TextStyle(
+                                  color: Colors.red[700],
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  ),
                 if (recipe.youtubeUrl != null)
                   const Padding(
                     padding: EdgeInsets.only(top: 4),
@@ -346,7 +407,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                       _recipes[index] = updated;
                     }
                   });
-                  if (!mounted) return;
+                  if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content:
@@ -354,7 +415,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
                       duration: const Duration(milliseconds: 2500),
                     ),
                   );
-                } catch (_) {}
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(friendlyErrorMessage(e,
+                          fallback: '북마크를 변경하지 못했어요. 잠시 후 다시 시도해 주세요.')),
+                    ),
+                  );
+                }
               },
             ),
             onTap: () async {

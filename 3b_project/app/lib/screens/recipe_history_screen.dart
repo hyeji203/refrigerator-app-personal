@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/recipe.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../utils/allergy.dart';
 import '../widgets/empty_state_widget.dart';
 import 'recipe_detail_screen.dart';
 
@@ -70,6 +71,7 @@ class _RecipeHistoryScreenState extends State<RecipeHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final allergies = parseAllergies(context.watch<AuthService>().allergies);
     return Scaffold(
       appBar: AppBar(title: const Text('최근 본 레시피')),
       body: _isLoading
@@ -86,6 +88,8 @@ class _RecipeHistoryScreenState extends State<RecipeHistoryScreen> {
                   itemCount: _history.length,
                   itemBuilder: (context, index) {
                     final recipe = _history[index];
+                    final recipeAllergens = matchRecipeAllergens(
+                        recipe.ingredientLines, allergies);
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8),
                       child: ListTile(
@@ -100,10 +104,23 @@ class _RecipeHistoryScreenState extends State<RecipeHistoryScreen> {
                           recipe.title,
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
-                        subtitle: Text(
-                          _formatViewedAt(recipe.viewedAt),
-                          style:
-                              const TextStyle(fontSize: 12, color: Colors.grey),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _formatViewedAt(recipe.viewedAt),
+                              style: const TextStyle(
+                                  fontSize: 12, color: Colors.grey),
+                            ),
+                            if (recipeAllergens.isNotEmpty)
+                              Text(
+                                '⚠ 알레르기 주의: ${recipeAllergens.join(', ')}',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.red[700],
+                                    fontWeight: FontWeight.bold),
+                              ),
+                          ],
                         ),
                         trailing: recipe.youtubeUrl != null
                             ? const Icon(Icons.play_circle_filled,

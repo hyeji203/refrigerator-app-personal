@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/ingredient.dart';
 import '../../services/auth_service.dart';
@@ -8,9 +9,24 @@ import '../../services/ingredient_service.dart';
 import '../../widgets/empty_state_widget.dart';
 import 'widgets/expiry_notification_panel.dart';
 import 'widgets/ingredient_action_dialog.dart';
+import '../../utils/error_message.dart';
+
+/// 냉장고 목록 정렬 기준
+enum IngredientSort {
+  expiry('유통기한 임박순', Icons.schedule),
+  name('이름순', Icons.sort_by_alpha),
+  recent('최근 추가순', Icons.new_releases_outlined);
+
+  final String label;
+  final IconData icon;
+  const IngredientSort(this.label, this.icon);
+}
 
 class IngredientScreen extends StatefulWidget {
-  const IngredientScreen({super.key});
+  /// 유통기한 임박(만료 포함) 재료 수가 바뀔 때 호출 (하단 탭 배지용)
+  final ValueChanged<int>? onExpiringCountChanged;
+
+  const IngredientScreen({super.key, this.onExpiringCountChanged});
 
   @override
   State<IngredientScreen> createState() => IngredientScreenState();
@@ -20,11 +36,28 @@ class IngredientScreenState extends State<IngredientScreen> {
   List<Ingredient> _ingredients = [];
   List<Ingredient> _expiringIngredients = [];
   bool _isLoading = false;
+  IngredientSort _sort = IngredientSort.expiry;
+
+  static const _sortPrefKey = 'ingredientSort';
 
   @override
   void initState() {
     super.initState();
+    _loadSortPreference();
     _loadIngredients();
+  }
+
+  Future<void> _loadSortPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_sortPrefKey);
+    final sort = IngredientSort.values.where((s) => s.name == saved);
+    if (sort.isNotEmpty && mounted) setState(() => _sort = sort.first);
+  }
+
+  Future<void> _changeSort(IngredientSort sort) async {
+    setState(() => _sort = sort);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_sortPrefKey, sort.name);
   }
 
   Future<void> loadIngredients() => _loadIngredients();
@@ -39,19 +72,20 @@ class IngredientScreenState extends State<IngredientScreen> {
         IngredientApiService.getExpiringIngredients(userId),
       ]).timeout(
         const Duration(seconds: 15),
-        onTimeout: () =>
-            throw Exception('서버 응답 시간이 초과됐습니다. 서버가 실행 중인지 확인해주세요.'),
+        onTimeout: () => throw Exception('응답이 너무 오래 걸려요. 잠시 후 다시 시도해 주세요.'),
       );
       if (!mounted) return;
       setState(() {
         _ingredients = results[0];
         _expiringIngredients = results[1];
       });
+      widget.onExpiringCountChanged?.call(_attentionCount);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('식재료를 불러오는 중 오류: $e'),
+          content: Text(friendlyErrorMessage(e,
+              fallback: '식재료를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')),
           duration: const Duration(seconds: 5),
           action: SnackBarAction(label: '재시도', onPressed: _loadIngredients),
         ),
@@ -80,13 +114,95 @@ class IngredientScreenState extends State<IngredientScreen> {
     );
   }
 
+  // 유통기한 임박 또는 지난 재료 수 (탭 배지)
+  int get _attentionCount =>
+      _ingredients.where((i) => i.expiringSoon || i.expired).length;
+
   List<_IngredientGroup> get _groupedIngredients {
     final map = <String, List<Ingredient>>{};
     for (final ingredient in _ingredients) {
       final key = ingredient.ingredientName.trim().toLowerCase();
       map.putIfAbsent(key, () => []).add(ingredient);
     }
-    return map.values.map((items) => _IngredientGroup(items)).toList();
+    final groups = map.values.map((items) => _IngredientGroup(items)).toList();
+    switch (_sort) {
+      case IngredientSort.expiry:
+        // 유통기한이 빠른 순, 유통기한 없는 재료는 맨 뒤
+        groups.sort((a, b) {
+          final ea = a.earliestExpiry, eb = b.earliestExpiry;
+          if (ea == null && eb == null) return a.name.compareTo(b.name);
+          if (ea == null) return 1;
+          if (eb == null) return -1;
+          final c = ea.compareTo(eb);
+          return c != 0 ? c : a.name.compareTo(b.name);
+        });
+      case IngredientSort.name:
+        groups.sort((a, b) => a.name.compareTo(b.name));
+      case IngredientSort.recent:
+        groups.sort((a, b) => b.latestId.compareTo(a.latestId));
+    }
+    return groups;
+  }
+
+  // ──────────────────── 유통기한 표시 ────────────────────
+  static DateTime? _parseDate(String? value) =>
+      value == null ? null : DateTime.tryParse(value);
+
+  /// 남은 일수 (오늘 = 0, 지남 = 음수)
+  static int? _daysLeft(String? expiryDate) {
+    final date = _parseDate(expiryDate);
+    if (date == null) return null;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return DateTime(date.year, date.month, date.day).difference(today).inDays;
+  }
+
+  static String _dDayLabel(int days) {
+    if (days < 0) return '${-days}일 지남';
+    if (days == 0) return 'D-Day';
+    return 'D-$days';
+  }
+
+  static Color _dDayColor(int? days) {
+    if (days == null) return Colors.grey;
+    if (days < 0) return Colors.grey[700]!;
+    if (days <= 3) return Colors.red;
+    return Colors.green[700]!;
+  }
+
+  /// "10/05 (D-3)" 형태. 유통기한이 없으면 null
+  static String? _expiryText(String? expiryDate) {
+    final date = _parseDate(expiryDate);
+    final days = _daysLeft(expiryDate);
+    if (date == null || days == null) return null;
+    return '${date.month.toString().padLeft(2, '0')}/'
+        '${date.day.toString().padLeft(2, '0')} (${_dDayLabel(days)})';
+  }
+
+  /// 입력된 수량. 없으면 null
+  static String? _quantityText(Ingredient ingredient) {
+    final q = ingredient.quantity?.trim();
+    return (q == null || q.isEmpty) ? null : q;
+  }
+
+  /// 수량·유통기한 중 입력된 것만 " · "로 이어 붙임 (둘 다 없으면 null)
+  Widget? _infoLine({String? lead, String? expiryDate, String? quantity}) {
+    final expiry = _expiryText(expiryDate);
+    final parts = [
+      if (lead != null) TextSpan(text: lead),
+      if (quantity != null) TextSpan(text: quantity),
+      if (expiry != null)
+        TextSpan(
+            text: '유통기한 $expiry',
+            style: TextStyle(color: _dDayColor(_daysLeft(expiryDate)))),
+    ];
+    if (parts.isEmpty) return null;
+    final children = <InlineSpan>[];
+    for (var i = 0; i < parts.length; i++) {
+      if (i > 0) children.add(const TextSpan(text: ' · '));
+      children.add(parts[i]);
+    }
+    return Text.rich(TextSpan(children: children));
   }
 
   void _openGroupDialog(_IngredientGroup group) {
@@ -115,27 +231,22 @@ class IngredientScreenState extends State<IngredientScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Text(
-                group.items.first.ingredientName,
+                '${group.name} ${group.items.length}개',
                 style:
                     const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
               ),
             ),
             const Divider(height: 1),
-            ...group.items.asMap().entries.map((entry) {
-              final i = entry.key;
-              final ingredient = entry.value;
-              final qty = (ingredient.quantity != null &&
-                      ingredient.quantity!.isNotEmpty)
-                  ? ingredient.quantity!
-                  : '수량 없음';
-              final exp = ingredient.expiryDate != null
-                  ? ingredient.expiryDate!
-                  : '유통기한 없음';
+            ...group.sortedItems.indexed.map((entry) {
+              final (i, ingredient) = entry;
+              final info = _infoLine(
+                  quantity: _quantityText(ingredient),
+                  expiryDate: ingredient.expiryDate);
               return ListTile(
-                title: Text('항목 ${i + 1}',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13)),
-                subtitle: Text('수량: $qty   유통기한: $exp'),
+                // 같은 재료끼리 구분되도록 입력된 수량·유통기한을 표시
+                title: info ??
+                    Text('${group.name} ${i + 1}',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -164,16 +275,16 @@ class IngredientScreenState extends State<IngredientScreen> {
     );
   }
 
+  // 목록 카드 요약 (입력된 정보만 표시, 아무것도 없으면 이름만)
+  // 한 개: "2개 · 유통기한 10/05 (D-3)", 여러 개: "총 3개 · 유통기한 10/05 (D-3)" (가장 빠른 날짜)
   Widget? _buildGroupSubtitle(_IngredientGroup group) {
-    final expiries = group.items
-        .where((i) => i.expiryDate != null)
-        .map((i) => i.expiryDate!)
-        .toSet()
-        .toList()
-      ..sort();
-
-    if (expiries.isEmpty) return null;
-    return Text('유통기한: ${expiries.join(' · ')}');
+    final first = group.sortedItems.first;
+    if (group.items.length > 1) {
+      return _infoLine(
+          lead: '총 ${group.items.length}개', expiryDate: first.expiryDate);
+    }
+    return _infoLine(
+        quantity: _quantityText(first), expiryDate: first.expiryDate);
   }
 
   static ({String emoji, Color bgColor}) _ingredientAppearance(String name) {
@@ -408,7 +519,10 @@ class IngredientScreenState extends State<IngredientScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('삭제 실패: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text(friendlyErrorMessage(e,
+                  fallback: '삭제하지 못했어요. 잠시 후 다시 시도해 주세요.')),
+              backgroundColor: Colors.red),
         );
       }
     }
@@ -416,10 +530,37 @@ class IngredientScreenState extends State<IngredientScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final groups = _groupedIngredients;
     return Scaffold(
       appBar: AppBar(
         title: const Text('내 냉장고'),
         actions: [
+          PopupMenuButton<IngredientSort>(
+            icon: const Icon(Icons.sort),
+            tooltip: '정렬: ${_sort.label}',
+            initialValue: _sort,
+            onSelected: _changeSort,
+            itemBuilder: (_) => IngredientSort.values
+                .map((s) => PopupMenuItem(
+                      value: s,
+                      child: Row(
+                        children: [
+                          Icon(s.icon,
+                              size: 20,
+                              color: s == _sort
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Colors.grey),
+                          const SizedBox(width: 12),
+                          Text(s.label,
+                              style: TextStyle(
+                                  fontWeight: s == _sort
+                                      ? FontWeight.bold
+                                      : FontWeight.normal)),
+                        ],
+                      ),
+                    ))
+                .toList(),
+          ),
           Stack(
             alignment: Alignment.center,
             children: [
@@ -470,13 +611,13 @@ class IngredientScreenState extends State<IngredientScreen> {
               ? const EmptyStateWidget(
                   icon: Icons.kitchen_outlined,
                   title: '냉장고가 비어있어요!',
-                  subtitle: '연필 버튼으로 재료를 추가하거나\n카메라로 스캔해보세요',
+                  subtitle: '+ 버튼으로 재료를 추가하거나\n카메라로 스캔해보세요',
                 )
               : ListView.builder(
                   padding: const EdgeInsets.all(8),
-                  itemCount: _groupedIngredients.length,
+                  itemCount: groups.length,
                   itemBuilder: (context, index) {
-                    final group = _groupedIngredients[index];
+                    final group = groups[index];
                     final style =
                         _ingredientAppearance(group.items.first.ingredientName);
                     return Slidable(
@@ -569,7 +710,8 @@ class IngredientScreenState extends State<IngredientScreen> {
                 ),
       floatingActionButton: FloatingActionButton(
         onPressed: _openAddDialog,
-        child: const Icon(Icons.edit),
+        tooltip: '재료 추가',
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -579,6 +721,23 @@ class _IngredientGroup {
   final List<Ingredient> items;
   _IngredientGroup(this.items);
 
+  String get name => items.first.ingredientName;
+
   bool get hasExpired => items.any((i) => i.expired);
   bool get hasExpiringSoon => items.any((i) => i.expiringSoon);
+
+  /// 유통기한 빠른 순 (유통기한 없는 항목은 뒤)
+  List<Ingredient> get sortedItems => [...items]..sort((a, b) {
+      final ea = a.expiryDate, eb = b.expiryDate;
+      if (ea == null && eb == null) return 0;
+      if (ea == null) return 1;
+      if (eb == null) return -1;
+      return ea.compareTo(eb);
+    });
+
+  String? get earliestExpiry => sortedItems.first.expiryDate;
+
+  /// 가장 최근에 추가된 항목 id (최근 추가순 정렬용)
+  int get latestId =>
+      items.map((i) => i.userIngredientId).reduce((a, b) => a > b ? a : b);
 }

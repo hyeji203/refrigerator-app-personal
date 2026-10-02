@@ -5,7 +5,9 @@ import com.refrigerator.app.entity.Recipe;
 import com.refrigerator.app.entity.RecipeIngredient;
 import com.refrigerator.app.entity.User;
 import com.refrigerator.app.entity.UserIngredient;
+import com.refrigerator.app.entity.UserAllergy;
 import com.refrigerator.app.repository.RecipeRepository;
+import com.refrigerator.app.repository.UserAllergyRepository;
 import com.refrigerator.app.repository.UserIngredientRepository;
 import com.refrigerator.app.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,14 +39,41 @@ public class RecipeService {
     private final RecipeRepository recipeRepository;
     private final UserRepository userRepository;
     private final UserIngredientRepository ingredientRepository;
+    private final UserAllergyRepository allergyRepository;
     private final WebClient.Builder webClientBuilder;
 
     public RecipeService(RecipeRepository recipeRepository, UserRepository userRepository,
-                         UserIngredientRepository ingredientRepository, WebClient.Builder webClientBuilder) {
+                         UserIngredientRepository ingredientRepository, UserAllergyRepository allergyRepository,
+                         WebClient.Builder webClientBuilder) {
         this.recipeRepository = recipeRepository;
         this.userRepository = userRepository;
         this.ingredientRepository = ingredientRepository;
+        this.allergyRepository = allergyRepository;
         this.webClientBuilder = webClientBuilder;
+    }
+
+    private List<String> getAllergens(Long userId) {
+        return allergyRepository.findByUserUserId(userId).stream()
+                .map(UserAllergy::getAllergen)
+                .collect(Collectors.toList());
+    }
+
+    // 프롬프트에 붙일 알레르기 제외 규칙 (알레르기 없으면 빈 문자열)
+    private String allergyRule(List<String> allergens) {
+        if (allergens.isEmpty()) return "";
+        return "- [안전 규칙] 사용자에게 다음 알레르기가 있습니다: " + AllergenMatcher.describeForPrompt(allergens) + "\n" +
+               "  이 재료와 이를 원료로 한 양념·가공품은 주재료와 양념 모두에 절대 사용하지 마세요.\n";
+    }
+
+    // Gemini가 규칙을 어겨도 알레르기 재료가 든 레시피는 걸러냄
+    private List<Map<String, String>> excludeAllergenRecipes(List<Map<String, String>> recipes, List<String> allergens) {
+        if (allergens.isEmpty()) return recipes;
+        return recipes.stream()
+                .filter(r -> {
+                    String ingredientLine = r.getOrDefault("description", "").split("\n")[0];
+                    return !AllergenMatcher.containsAny(ingredientLine, allergens);
+                })
+                .collect(Collectors.toList());
     }
 
     @Transactional
@@ -53,8 +82,12 @@ public class RecipeService {
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
         List<UserIngredient> userIngredients = ingredientRepository.findByUserUserIdAndStatus(userId, "ACTIVE");
+        List<String> allergens = getAllergens(userId);
+        // 알레르기 재료는 추천에 쓸 재료 후보에서 제외
         List<String> ingredientNames = userIngredients.stream()
                 .map(UserIngredient::getIngredientName)
+                .filter(name -> AllergenMatcher.match(name, allergens).isEmpty())
+                .distinct()
                 .collect(Collectors.toList());
 
         if (ingredientNames.isEmpty()) {
@@ -62,7 +95,8 @@ public class RecipeService {
         }
 
         // Gemini 1번 호출로 3개 레시피(이름+재료+조리법) 전부 생성
-        List<Map<String, String>> recipeDataList = callGeminiForAllRecipes(ingredientNames);
+        List<Map<String, String>> recipeDataList = excludeAllergenRecipes(
+                callGeminiForAllRecipes(ingredientNames, allergens), allergens);
 
         // 각 레시피 이름으로 YouTube 검색 후 저장
         List<RecipeResponseDto> results = new ArrayList<>();
@@ -153,7 +187,14 @@ public class RecipeService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
-        List<Map<String, String>> recipeDataList = callGeminiForIngredient(ingredient);
+        // 사용자가 직접 검색한 재료에 해당하는 알레르기는 제외 규칙에서 빼고(화면에서 ⚠ 표시), 나머지는 제외
+        List<String> userAllergens = getAllergens(userId);
+        List<String> searched = AllergenMatcher.match(ingredient, userAllergens);
+        List<String> allergens = userAllergens.stream()
+                .filter(a -> !searched.contains(a))
+                .collect(Collectors.toList());
+        List<Map<String, String>> recipeDataList = excludeAllergenRecipes(
+                callGeminiForIngredient(ingredient, allergens), allergens);
 
         List<RecipeResponseDto> results = new ArrayList<>();
         for (Map<String, String> recipeData : recipeDataList) {
@@ -182,14 +223,15 @@ public class RecipeService {
         return results;
     }
 
-    private List<Map<String, String>> callGeminiForIngredient(String ingredient) {
+    private List<Map<String, String>> callGeminiForIngredient(String ingredient, List<String> allergens) {
         try {
             String prompt = String.format(
                     "'%s'을(를) 주재료로 한 한국 가정식 요리 3가지를 추천해주세요.\n\n" +
                     "중요 규칙:\n" +
                     "- 실제 한국 가정에서 자주 만드는 현실적인 요리만 추천하세요.\n" +
                     "- 주재료와 맛·조리 방식이 자연스럽게 어울리는 재료 3~5가지만 사용하세요.\n" +
-                    "- 부족한 재료는 소금, 간장, 참기름 등 기본 양념류로 보완해도 됩니다.\n\n" +
+                    "- 부족한 재료는 소금, 간장, 참기름 등 기본 양념류로 보완해도 됩니다.\n" +
+                    "%s\n" +
                     "아래 형식으로만 작성하세요. 각 레시피는 정확히 3줄, 레시피 사이에만 빈 줄 하나:\n\n" +
                     "요리이름\n" +
                     "주재료: 재료1 분량, 재료2 분량, 재료3 분량, 재료4 분량, 재료5 분량\n" +
@@ -200,7 +242,7 @@ public class RecipeService {
                     "요리이름\n" +
                     "주재료: ...\n" +
                     "조리법: ...",
-                    ingredient);
+                    ingredient, allergyRule(allergens));
 
             Map<String, Object> textPart = Map.of("text", prompt);
             Map<String, Object> content = Map.of("parts", List.of(textPart));
@@ -224,7 +266,7 @@ public class RecipeService {
     }
 
     // Gemini 1회 호출로 3개 레시피 전체 생성
-    private List<Map<String, String>> callGeminiForAllRecipes(List<String> ingredients) {
+    private List<Map<String, String>> callGeminiForAllRecipes(List<String> ingredients, List<String> allergens) {
         try {
             String ingredientList = String.join(", ", ingredients);
             String prompt = String.format(
@@ -234,7 +276,8 @@ public class RecipeService {
                     "- 냉장고 재료 전부를 한 요리에 억지로 넣지 마세요. 맛과 요리 방식이 자연스럽게 어울리는 재료만 사용하세요.\n" +
                     "- 실제 한국 가정에서 자주 만드는 현실적인 요리만 추천하세요 (예: 김치찌개에 방울토마토 X).\n" +
                     "- 각 요리마다 레시피에 적합한 재료 3~5가지만 선택하세요.\n" +
-                    "- 부족한 재료는 소금, 간장, 참기름 등 기본 양념류로 보완해도 됩니다.\n\n" +
+                    "- 부족한 재료는 소금, 간장, 참기름 등 기본 양념류로 보완해도 됩니다.\n" +
+                    "%s\n" +
                     "아래 형식으로만 작성하세요. 각 레시피는 정확히 3줄, 레시피 사이에만 빈 줄 하나:\n\n" +
                     "요리이름\n" +
                     "주재료: 재료1 분량, 재료2 분량, 재료3 분량, 재료4 분량, 재료5 분량\n" +
@@ -245,7 +288,7 @@ public class RecipeService {
                     "요리이름\n" +
                     "주재료: ...\n" +
                     "조리법: ...",
-                    ingredientList);
+                    ingredientList, allergyRule(allergens));
 
             Map<String, Object> textPart = Map.of("text", prompt);
             Map<String, Object> content = Map.of("parts", List.of(textPart));

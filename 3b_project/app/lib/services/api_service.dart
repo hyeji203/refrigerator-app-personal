@@ -1,10 +1,14 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.229.203:8080/api'; // 실제 기기 테스트 (PC IP)
-  // 크롬/Windows 데스크탑: 'http://localhost:8080/api'
+  // 크롬(웹)은 같은 PC의 서버를 localhost로 접속 → Wi-Fi IP가 바뀌어도 수정 불필요
+  // 실제 기기는 PC IP 사용 (Wi-Fi가 바뀌면 ipconfig로 확인해 수정)
   // Android 에뮬레이터: 'http://10.0.2.2:8080/api'
+  static const String baseUrl = kIsWeb
+      ? 'http://localhost:8080/api'
+      : 'http://192.168.123.123:8080/api';
 
   static final Dio _dio = _createDio(connectTimeout: const Duration(seconds: 30));
   static final Dio _dioLong = _createDio(connectTimeout: const Duration(minutes: 5));

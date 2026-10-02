@@ -8,6 +8,7 @@ import '../../../services/ingredient_service.dart';
 import '../../../services/notification_service.dart';
 import '../../../widgets/app_loading_indicator.dart';
 import '../../../widgets/ingredient_form.dart';
+import '../../../utils/error_message.dart';
 
 /// 식재료 추가/수정/삭제를 하나의 다이얼로그로 처리.
 /// [ingredient]가 null이면 추가 모드, 값이 있으면 수정 모드.
@@ -25,8 +26,7 @@ class IngredientActionDialog extends StatefulWidget {
   bool get isEditMode => ingredient != null;
 
   @override
-  State<IngredientActionDialog> createState() =>
-      _IngredientActionDialogState();
+  State<IngredientActionDialog> createState() => _IngredientActionDialogState();
 }
 
 class _IngredientActionDialogState extends State<IngredientActionDialog> {
@@ -74,6 +74,9 @@ class _IngredientActionDialogState extends State<IngredientActionDialog> {
         });
         if (expiryStr != null) {
           try {
+            if (mounted) {
+              await NotificationService.requestPermissionWithRationale(context);
+            }
             await NotificationService.scheduleExpiryAlert(
               id: added.userIngredientId,
               ingredientName: added.ingredientName,
@@ -91,8 +94,10 @@ class _IngredientActionDialogState extends State<IngredientActionDialog> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                widget.isEditMode ? '수정 실패: $e' : '식재료 추가 실패: $e'),
+            content: Text(friendlyErrorMessage(e,
+                fallback: widget.isEditMode
+                    ? '수정하지 못했어요. 잠시 후 다시 시도해 주세요.'
+                    : '식재료를 추가하지 못했어요. 잠시 후 다시 시도해 주세요.')),
             backgroundColor: Colors.red,
           ),
         );
@@ -114,10 +119,8 @@ class _IngredientActionDialogState extends State<IngredientActionDialog> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style:
-                ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('삭제',
-                style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('삭제', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -134,7 +137,8 @@ class _IngredientActionDialogState extends State<IngredientActionDialog> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('삭제 실패: $e'),
+              content: Text(friendlyErrorMessage(e,
+                  fallback: '삭제하지 못했어요. 잠시 후 다시 시도해 주세요.')),
               backgroundColor: Colors.red,
             ),
           );
@@ -166,8 +170,7 @@ class _IngredientActionDialogState extends State<IngredientActionDialog> {
           const Spacer(),
         ],
         TextButton(
-          onPressed:
-              _isLoading ? null : () => Navigator.pop(context),
+          onPressed: _isLoading ? null : () => Navigator.pop(context),
           child: const Text('취소'),
         ),
         ElevatedButton(

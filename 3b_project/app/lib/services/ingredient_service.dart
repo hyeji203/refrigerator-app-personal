@@ -38,7 +38,9 @@ class IngredientApiService {
   }
 
   static Future<List<String>> analyzeImage(Uint8List imageBytes,
-      {int? userId}) async {
+      {int? userId,
+      CancelToken? cancelToken,
+      void Function(int sent, int total)? onSendProgress}) async {
     final formData = FormData.fromMap({
       'image': MultipartFile.fromBytes(imageBytes, filename: 'scan.jpg'),
       if (userId != null) 'userId': userId.toString(),
@@ -46,6 +48,8 @@ class IngredientApiService {
     final res = await ApiService.dioLong.post(
       '/scan/analyze',
       data: formData,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
     );
     final list = res.data['recognizedIngredients'] as List?;
     return list?.map((e) => e.toString()).toList() ?? [];

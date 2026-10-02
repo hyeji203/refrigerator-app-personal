@@ -46,6 +46,24 @@ class Recipe {
           [],
     );
   }
+
+  /// description의 "주재료:" 줄을 재료 목록으로 분리
+  List<String> get ingredientLines {
+    final desc = description;
+    if (desc == null || desc.isEmpty) return [];
+    for (final line in desc.split('\n')) {
+      final trimmed = line.trim();
+      if (trimmed.startsWith('주재료:')) {
+        return trimmed
+            .substring('주재료:'.length)
+            .split(',')
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+      }
+    }
+    return [];
+  }
 }
 
 class RecipeIngredient {

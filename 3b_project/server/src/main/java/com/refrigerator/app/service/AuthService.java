@@ -24,6 +24,22 @@ public class AuthService {
     }
 
     /**
+     * 아이디 사용 가능 여부 (회원가입 실시간 중복 확인용)
+     */
+    @Transactional(readOnly = true)
+    public boolean isLoginIdAvailable(String loginId) {
+        return !userRepository.existsByLoginId(loginId);
+    }
+
+    /**
+     * 이메일 사용 가능 여부 (회원가입 실시간 중복 확인용)
+     */
+    @Transactional(readOnly = true)
+    public boolean isEmailAvailable(String email) {
+        return !userRepository.existsByEmail(email);
+    }
+
+    /**
      * 회원가입
      */
     @Transactional
