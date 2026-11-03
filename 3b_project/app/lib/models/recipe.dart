@@ -47,6 +47,9 @@ class Recipe {
     );
   }
 
+  /// 서버가 유튜브 영상 내용으로 재료·조리법을 정리했는지 여부
+  bool get isFromVideo => description?.contains('출처: 영상') ?? false;
+
   /// description의 "주재료:" 줄을 재료 목록으로 분리
   List<String> get ingredientLines {
     final desc = description;

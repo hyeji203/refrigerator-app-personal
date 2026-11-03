@@ -44,6 +44,12 @@ public class RecipeController {
         return ResponseEntity.ok().build();
     }
 
+    // 연결된 유튜브 영상 내용으로 재료·조리법 재정리 (상세 화면 진입 시 호출)
+    @PostMapping("/{recipeId}/video-recipe")
+    public ResponseEntity<RecipeResponseDto> syncWithVideo(@PathVariable Long recipeId) {
+        return ResponseEntity.ok(recipeService.syncRecipeWithVideo(recipeId));
+    }
+
     // 최근 본 레시피 (최대 10개)
     @GetMapping("/user/{userId}/history")
     public ResponseEntity<List<RecipeResponseDto>> getViewHistory(@PathVariable Long userId) {

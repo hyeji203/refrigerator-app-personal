@@ -22,6 +22,10 @@ class RecipeDetailScreen extends StatefulWidget {
 
 class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   late int _isSaved;
+  late Recipe _recipe;
+
+  // 영상 내용으로 레시피를 정리하는 중인지
+  bool _syncingVideo = false;
 
   // 냉장고 재료 (보유/부족 판단용). null = 아직 불러오는 중
   List<Ingredient>? _fridge;
@@ -31,10 +35,29 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   void initState() {
     super.initState();
     _isSaved = widget.recipe.isSaved;
+    _recipe = widget.recipe;
     ApiService.dio
         .patch('/recipes/${widget.recipe.recipeId}/view')
         .catchError((_) {});
     _loadFridge();
+    _syncWithVideo();
+  }
+
+  // 영상이 있는데 아직 영상 기준으로 정리되지 않았으면 서버에 정리 요청
+  Future<void> _syncWithVideo() async {
+    if (_recipe.youtubeUrl == null || _recipe.isFromVideo) return;
+    setState(() => _syncingVideo = true);
+    try {
+      final res = await ApiService.dioLong
+          .post('/recipes/${_recipe.recipeId}/video-recipe');
+      if (mounted) {
+        setState(() => _recipe = Recipe.fromJson(res.data));
+      }
+    } catch (_) {
+      // 실패 시 기존 AI 레시피를 그대로 보여줌
+    } finally {
+      if (mounted) setState(() => _syncingVideo = false);
+    }
   }
 
   Future<void> _loadFridge() async {
@@ -66,14 +89,15 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   void _addToCart(RecipeIngredientLine line) {
-    context.read<CartService>().addItem(line.name, amount: line.amount);
+    // 레시피 분량(1큰술, 1/2개 등)은 요리에 쓰는 양이라 장보기 수량으로 맞지 않음 → 이름만 담기
+    context.read<CartService>().addItem(line.name);
     _showCartSnack("'${line.name}'을(를) 장바구니에 담았어요.");
   }
 
   // 부족한 재료 일괄 담기 (알레르기 재료는 제외)
   void _addMissingToCart(List<RecipeIngredientLine> toAdd, int skippedAllergy) {
     context.read<CartService>().addItems(
-        toAdd.map((l) => CartItem(name: l.name, amount: l.amount)).toList());
+        toAdd.map((l) => CartItem(name: l.name)).toList());
     _showCartSnack(skippedAllergy > 0
         ? '부족한 재료 ${toAdd.length}개를 담았어요. (알레르기 재료 $skippedAllergy개 제외)'
         : '부족한 재료 ${toAdd.length}개를 장바구니에 담았어요.');
@@ -315,16 +339,48 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         .toList();
 
     if (toAdd.isEmpty) {
-      return SizedBox(
-        width: double.infinity,
-        child: OutlinedButton.icon(
-          icon: const Icon(Icons.shopping_cart),
-          label: const Text('부족한 재료를 장바구니에 담았어요'),
-          onPressed: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => const CartScreen())),
-          style: OutlinedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 48)),
-        ),
+      // 더 담을 재료 없음 → 상태는 안내 줄로, 이동은 별도 버튼으로 분리
+      final skippedAllergy = allergyIdx
+          .where((i) => !cart.hasItem(lines[i].name))
+          .map((i) => lines[i].name)
+          .toList();
+      final anyInCart = missingIdx.any((i) => cart.hasItem(lines[i].name));
+
+      final IconData icon;
+      final Color color;
+      final String message;
+      if (skippedAllergy.isEmpty) {
+        icon = Icons.check_circle;
+        color = Colors.green.shade800;
+        message = '부족한 재료를 모두 담았어요';
+      } else {
+        icon = Icons.warning_amber_rounded;
+        color = Colors.red.shade700;
+        message = '알레르기 재료(${skippedAllergy.join(', ')})는 담지 않았어요';
+      }
+
+      return Row(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(message,
+                style: TextStyle(
+                    fontSize: 13, color: color, fontWeight: FontWeight.bold)),
+          ),
+          if (anyInCart)
+            TextButton(
+              onPressed: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const CartScreen())),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('장바구니 보기'),
+                  Icon(Icons.chevron_right, size: 18),
+                ],
+              ),
+            ),
+        ],
       );
     }
     return SizedBox(
@@ -344,7 +400,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final recipe = widget.recipe;
+    final recipe = _recipe;
     final ingredients = recipe.ingredientLines;
     final steps = _parseSteps(recipe.description);
     final allergies = parseAllergies(context.watch<AuthService>().allergies);
@@ -367,15 +423,11 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // YouTube 썸네일 (최상단, 전체 너비)
+            // YouTube 썸네일 (최상단, 전체 너비) - 누르면 영상 열기 (별도 버튼 없음)
             if (recipe.youtubeUrl != null)
-              GestureDetector(
-                onTap: () async {
-                  final uri = Uri.tryParse(recipe.youtubeUrl!);
-                  if (uri != null && await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
-                },
+              Semantics(
+                button: true,
+                label: '참고 영상 보기, 유튜브에서 열림',
                 child: Stack(
                   children: [
                     Builder(builder: (context) {
@@ -430,6 +482,46 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         ]),
                       ),
                     ),
+                    // 누를 때 눌림 효과가 보이도록 썸네일 위에 InkWell
+                    Positioned.fill(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () async {
+                            final uri = Uri.tryParse(recipe.youtubeUrl!);
+                            if (uri != null && await canLaunchUrl(uri)) {
+                              await launchUrl(uri,
+                                  mode: LaunchMode.externalApplication);
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            // 레시피 출처 안내 (썸네일 바로 아래)
+            if (recipe.youtubeUrl != null && !_syncingVideo)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: Icon(Icons.info_outline,
+                          size: 14, color: Colors.grey[500]),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        recipe.isFromVideo
+                            ? '아래 재료·조리법은 위 영상 내용을 바탕으로 정리했습니다. 보유·부족은 내 냉장고 기준입니다.'
+                            : '영상 내용을 불러오지 못해 내 냉장고 재료 기반으로 AI가 생성한 레시피를 보여드려요. 영상과 다를 수 있습니다.',
+                        style: TextStyle(
+                            fontSize: 12, height: 1.4, color: Colors.grey[600]),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -438,6 +530,27 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 영상 내용 정리 중: 바뀌기 전 레시피가 잠깐 보였다 바뀌지 않도록 로딩만 표시
+                  if (_syncingVideo)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            const CircularProgressIndicator(),
+                            const SizedBox(height: 14),
+                            Text('영상에서 재료와 조리법을 정리하는 중...',
+                                style: TextStyle(
+                                    fontSize: 14, color: Colors.grey[700])),
+                            const SizedBox(height: 4),
+                            Text('처음 한 번만 걸려요. 잠시만 기다려 주세요.',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey[500])),
+                          ],
+                        ),
+                      ),
+                    )
+                  else ...[
                   // 알레르기 경고 (가장 먼저 보이도록 최상단)
                   if (recipeAllergens.isNotEmpty) ...[
                     Container(
@@ -477,52 +590,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                  ],
-
-                  // YouTube에서 보기 버튼
-                  if (recipe.youtubeUrl != null) ...[
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.play_circle_filled,
-                          color: Colors.white),
-                      label: const Text('같은 요리 참고 영상 보기'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 48),
-                      ),
-                      onPressed: () async {
-                        final uri = Uri.tryParse(recipe.youtubeUrl!);
-                        if (uri != null && await canLaunchUrl(uri)) {
-                          await launchUrl(uri,
-                              mode: LaunchMode.externalApplication);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.amber[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.amber.shade300),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.info_outline,
-                              size: 16, color: Colors.orange),
-                          SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              '아래 재료·조리법은 내 냉장고 재료 기반으로 AI가 맞춤 생성한 것입니다. 영상의 재료와 다를 수 있습니다.',
-                              style: TextStyle(
-                                  fontSize: 12, color: Colors.orange),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
                   ],
 
                   // 필요 재료 (보유/부족 표시 + 장바구니 담기)
@@ -580,6 +647,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         ),
                       );
                     }),
+                  ],
                   ],
                 ],
               ),

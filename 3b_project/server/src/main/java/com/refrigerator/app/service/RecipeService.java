@@ -351,6 +351,139 @@ public class RecipeService {
         }
     }
 
+    // ──────────── 영상 기반 레시피 (상세 화면 진입 시) ────────────
+
+    // description에 이 줄이 있으면 이미 영상 내용으로 정리된 레시피
+    private static final String VIDEO_SOURCE_LINE = "출처: 영상";
+
+    private static final String VIDEO_RECIPE_FORMAT =
+            "아래 형식으로만 작성하세요 (정확히 3줄, 다른 말 금지):\n" +
+            "요리이름\n" +
+            "주재료: 재료1 분량, 재료2 분량, ... (양념 포함, 영상에 나온 재료 전부)\n" +
+            "조리법: 1. 단계 2. 단계 3. 단계 ... (영상의 순서대로)\n";
+
+    /**
+     * 레시피에 연결된 유튜브 영상의 실제 내용으로 재료·조리법을 다시 정리한다.
+     * 1순위: 영상 설명란, 2순위: Gemini 영상 분석. 둘 다 실패하면 기존 레시피를 그대로 반환.
+     */
+    @Transactional
+    public RecipeResponseDto syncRecipeWithVideo(Long recipeId) {
+        Recipe recipe = recipeRepository.findById(recipeId)
+                .orElseThrow(() -> new RuntimeException("레시피를 찾을 수 없습니다."));
+
+        String desc = recipe.getDescription();
+        if (recipe.getYoutubeUrl() == null || (desc != null && desc.contains(VIDEO_SOURCE_LINE))) {
+            return toResponseDto(recipe);
+        }
+
+        String videoId = extractVideoId(recipe.getYoutubeUrl());
+        if (videoId == null) return toResponseDto(recipe);
+
+        Map<String, String> extracted = null;
+
+        // 1순위: 영상 설명란에 적힌 레시피 정리
+        String videoDescription = fetchVideoDescription(videoId);
+        if (videoDescription != null && videoDescription.length() > 30) {
+            extracted = extractRecipeFromVideoDescription(recipe.getYoutubeTitle(), videoDescription);
+        }
+
+        // 2순위: Gemini가 영상을 직접 분석
+        if (extracted == null) {
+            extracted = extractRecipeFromVideo(recipe.getYoutubeUrl());
+        }
+
+        if (extracted == null) return toResponseDto(recipe);
+
+        recipe.setTitle(extracted.get("name"));
+        recipe.setDescription(extracted.get("description") + "\n" + VIDEO_SOURCE_LINE);
+        recipeRepository.save(recipe);
+        return toResponseDto(recipe);
+    }
+
+    private String extractVideoId(String youtubeUrl) {
+        int idx = youtubeUrl.indexOf("v=");
+        if (idx < 0) return null;
+        String id = youtubeUrl.substring(idx + 2);
+        int amp = id.indexOf('&');
+        return amp >= 0 ? id.substring(0, amp) : id;
+    }
+
+    // search API의 snippet.description은 잘려 있으므로 videos API로 전체 설명란 조회
+    @SuppressWarnings("unchecked")
+    private String fetchVideoDescription(String videoId) {
+        try {
+            WebClient webClient = webClientBuilder.baseUrl(youtubeApiUrl).build();
+            Map response = webClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/videos")
+                            .queryParam("part", "snippet")
+                            .queryParam("id", videoId)
+                            .queryParam("key", youtubeApiKey)
+                            .build())
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .timeout(Duration.ofSeconds(15))
+                    .block();
+
+            List<Map> items = (List<Map>) response.get("items");
+            if (items == null || items.isEmpty()) return null;
+            Map snippet = (Map) items.get(0).get("snippet");
+            return (String) snippet.get("description");
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private Map<String, String> extractRecipeFromVideoDescription(String videoTitle, String videoDescription) {
+        String prompt =
+                "다음은 유튜브 요리 영상의 제목과 설명란입니다.\n\n" +
+                "제목: " + (videoTitle == null ? "" : videoTitle) + "\n" +
+                "설명란:\n" + videoDescription + "\n\n" +
+                "설명란에 이 영상 요리의 재료(분량)와 조리 순서가 적혀 있으면, 설명란 내용만 근거로 정리하세요.\n" +
+                "- 설명란에 없는 재료나 단계를 지어내지 마세요.\n" +
+                "- 재료 목록이나 조리 순서가 설명란에 없으면 다른 말 없이 '없음' 한 단어만 출력하세요.\n\n" +
+                VIDEO_RECIPE_FORMAT;
+        return parseSingleRecipe(callGemini(List.of(Map.of("text", prompt)), 60));
+    }
+
+    private Map<String, String> extractRecipeFromVideo(String youtubeUrl) {
+        String prompt =
+                "이 유튜브 요리 영상을 보고, 영상에서 실제로 사용한 재료(분량)와 조리 순서를 정리하세요.\n" +
+                "- 영상에 나오지 않은 재료나 단계를 지어내지 마세요.\n" +
+                "- 분량이 영상에 나오지 않으면 '적당량'으로 쓰세요.\n" +
+                "- 요리 영상이 아니면 다른 말 없이 '없음' 한 단어만 출력하세요.\n\n" +
+                VIDEO_RECIPE_FORMAT;
+        List<Map<String, Object>> parts = List.of(
+                Map.of("fileData", Map.of("fileUri", youtubeUrl)),
+                Map.of("text", prompt));
+        return parseSingleRecipe(callGemini(parts, 120));
+    }
+
+    private String callGemini(List<? extends Map<String, ?>> parts, int timeoutSeconds) {
+        try {
+            Map<String, Object> requestBody = Map.of("contents", List.of(Map.of("parts", parts)));
+            Map response = webClientBuilder.build().post()
+                    .uri(geminiApiUrl + "/gemini-3-flash-preview:generateContent?key=" + geminiApiKey)
+                    .header("Content-Type", "application/json")
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .timeout(Duration.ofSeconds(timeoutSeconds))
+                    .block();
+            return extractTextFromGeminiResponse(response);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private Map<String, String> parseSingleRecipe(String text) {
+        if (text == null || text.isBlank() || text.trim().startsWith("없음")) return null;
+        // 3줄 형식이 빈 줄로 나뉘어 와도 처리되도록 빈 줄 제거 후 파싱
+        String compact = text.replace("```", "").replaceAll("\\n\\s*\\n", "\n").trim();
+        List<Map<String, String>> parsed = parseRecipesFromText(compact);
+        return parsed.isEmpty() ? null : parsed.get(0);
+    }
+
     @SuppressWarnings("unchecked")
     private Map<String, String> searchYoutubeResult(String recipeTitle) {
         try {
