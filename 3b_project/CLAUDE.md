@@ -20,7 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Oracle DB
 - Oracle XE 21.3 설치파일: `C:\Users\gw604\Downloads\OracleXE213\setup.exe` (관리자 권한으로 실행)
-- 설치 후 비밀번호: `Oracle21c!`, 포트: 1521
+- 설치 시 직접 정한 비밀번호 사용, 포트: 1521
 - DB 스키마: `database/01_create_tables.sql` → `database/02_sample_data.sql` 순서로 실행
 
 ### API 키
