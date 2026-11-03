@@ -1,3 +1,5 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:flutter/material.dart';
 import 'allergy_screen.dart';
 
@@ -61,6 +63,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
+  void _prev() {
+    _controller.previousPage(
+        duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+  }
+
+  void _goTo(int i) {
+    _controller.animateToPage(i,
+        duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+  }
+
   void _openAllergy() {
     Navigator.pushReplacement(
       context,
@@ -75,20 +87,36 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: AnimatedOpacity(
-                opacity: _isLast ? 0 : 1,
-                duration: const Duration(milliseconds: 200),
-                child: TextButton(
-                  onPressed: _isLast ? null : () => Navigator.pop(context),
-                  child: const Text('건너뛰기'),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // 첫 장이 아니면 이전 설명으로 돌아갈 수 있게
+                AnimatedOpacity(
+                  opacity: _index == 0 ? 0 : 1,
+                  duration: const Duration(milliseconds: 200),
+                  child: TextButton.icon(
+                    onPressed: _index == 0 ? null : _prev,
+                    icon: const Icon(Icons.chevron_left),
+                    label: const Text('이전'),
+                  ),
                 ),
-              ),
+                AnimatedOpacity(
+                  opacity: _isLast ? 0 : 1,
+                  duration: const Duration(milliseconds: 200),
+                  child: TextButton(
+                    onPressed: _isLast ? null : () => Navigator.pop(context),
+                    child: const Text('건너뛰기'),
+                  ),
+                ),
+              ],
             ),
             Expanded(
               child: PageView.builder(
                 controller: _controller,
+                // 웹/데스크탑에서도 마우스 드래그로 넘길 수 있게
+                scrollBehavior: ScrollConfiguration.of(context).copyWith(
+                  dragDevices: PointerDeviceKind.values.toSet(),
+                ),
                 itemCount: _pages.length,
                 onPageChanged: (i) => setState(() => _index = i),
                 itemBuilder: (_, i) {
@@ -126,14 +154,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
                 _pages.length,
-                (i) => AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: i == _index ? 20 : 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: i == _index ? primary : Colors.grey[300],
-                    borderRadius: BorderRadius.circular(4),
+                // 점을 눌러 원하는 장으로 바로 이동
+                (i) => GestureDetector(
+                  onTap: () => _goTo(i),
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 4, vertical: 8),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: i == _index ? 20 : 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: i == _index ? primary : Colors.grey[300],
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
                   ),
                 ),
               ),

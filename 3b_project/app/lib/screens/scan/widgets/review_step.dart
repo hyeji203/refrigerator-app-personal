@@ -106,8 +106,6 @@ class ReviewStep extends StatelessWidget {
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 4),
@@ -186,7 +184,10 @@ class ReviewStep extends StatelessWidget {
 
         // ── 저장 버튼 ──
         Container(
-          color: Colors.white,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Colors.grey.shade200)),
+          ),
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           child: SizedBox(
             width: double.infinity,

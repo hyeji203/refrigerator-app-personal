@@ -52,7 +52,10 @@ class PreviewStep extends StatelessWidget {
           ),
         ),
         Container(
-          color: Colors.white,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Colors.grey.shade200)),
+          ),
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
           child: Column(
             children: [

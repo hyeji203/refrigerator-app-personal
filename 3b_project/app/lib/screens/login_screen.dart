@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import '../widgets/app_loading_indicator.dart';
+import 'find_account_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -55,6 +56,21 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _openFindAccount(int tab) async {
+    final foundLoginId = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => FindAccountScreen(initialTab: tab)),
+    );
+    // 찾은/재설정한 아이디를 로그인 칸에 채워 줌
+    if (foundLoginId != null && mounted) {
+      setState(() {
+        _loginIdController.text = foundLoginId;
+        _passwordController.clear();
+        _loginError = null;
+      });
     }
   }
 
@@ -166,7 +182,24 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 4),
+                        // 아이디 찾기 | 비밀번호 찾기
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            TextButton(
+                              onPressed: () => _openFindAccount(0),
+                              child: Text('아이디 찾기',
+                                  style: TextStyle(color: Colors.grey[700])),
+                            ),
+                            Text('|', style: TextStyle(color: Colors.grey[400])),
+                            TextButton(
+                              onPressed: () => _openFindAccount(1),
+                              child: Text('비밀번호 찾기',
+                                  style: TextStyle(color: Colors.grey[700])),
+                            ),
+                          ],
+                        ),
                         TextButton(
                           onPressed: () {
                             Navigator.push(

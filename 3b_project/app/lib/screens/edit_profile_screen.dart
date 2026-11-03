@@ -13,8 +13,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _usernameCtrl;
   late TextEditingController _emailCtrl;
-  late TextEditingController _phoneCtrl;
   final _passwordCtrl = TextEditingController();
+  final _passwordConfirmCtrl = TextEditingController();
+  final _confirmFieldKey = GlobalKey<FormFieldState<String>>();
   bool _isLoading = false;
   bool _obscurePassword = true;
 
@@ -24,16 +25,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final auth = context.read<AuthService>();
     _usernameCtrl = TextEditingController(text: auth.username);
     _emailCtrl = TextEditingController(text: auth.email);
-    _phoneCtrl = TextEditingController(text: auth.phone ?? '');
   }
 
   @override
   void dispose() {
     _usernameCtrl.dispose();
     _emailCtrl.dispose();
-    _phoneCtrl.dispose();
     _passwordCtrl.dispose();
+    _passwordConfirmCtrl.dispose();
     super.dispose();
+  }
+
+  // 새 비밀번호는 선택 입력: 비어 있으면 변경하지 않음
+  String? _validatePassword(String? value) {
+    final v = value ?? '';
+    if (v.isEmpty) return null;
+    if (v.length < 6) return '비밀번호는 6자 이상이어야 해요. (${v.length}/6)';
+    return null;
+  }
+
+  String? _validateConfirm(String? value) {
+    if (_passwordCtrl.text.isEmpty) return null;
+    final v = value ?? '';
+    if (v.isEmpty) return '새 비밀번호를 한 번 더 입력해 주세요.';
+    if (v != _passwordCtrl.text) return '비밀번호가 일치하지 않아요.';
+    return null;
   }
 
   Future<void> _save() async {
@@ -43,8 +59,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       await context.read<AuthService>().updateProfile(
             username: _usernameCtrl.text.trim(),
             email: _emailCtrl.text.trim(),
-            phone:
-                _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
             password: _passwordCtrl.text.isEmpty ? null : _passwordCtrl.text,
           );
       if (!mounted) return;
@@ -112,19 +126,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     (v == null || v.isEmpty) ? '이메일을 입력해주세요' : null,
               ),
               const SizedBox(height: 16),
-              _buildField(
-                controller: _phoneCtrl,
-                label: '전화번호',
-                icon: Icons.phone_outlined,
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 16),
               TextFormField(
                 controller: _passwordCtrl,
                 obscureText: _obscurePassword,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                validator: _validatePassword,
+                onChanged: (_) {
+                  // 새 비밀번호를 바꾸면 확인란 일치 여부도 다시 검사
+                  if (_passwordConfirmCtrl.text.isNotEmpty) {
+                    _confirmFieldKey.currentState?.validate();
+                  }
+                },
                 decoration: InputDecoration(
                   labelText: '새 비밀번호',
                   hintText: '변경 시에만 입력',
+                  helperText: '6자 이상',
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
                     icon: Icon(_obscurePassword
@@ -134,6 +150,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         setState(() => _obscurePassword = !_obscurePassword),
                   ),
                   border: const OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                key: _confirmFieldKey,
+                controller: _passwordConfirmCtrl,
+                obscureText: _obscurePassword,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                validator: _validateConfirm,
+                decoration: const InputDecoration(
+                  labelText: '새 비밀번호 확인',
+                  hintText: '새 비밀번호를 한 번 더 입력',
+                  prefixIcon: Icon(Icons.lock_outline),
+                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 32),

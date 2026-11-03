@@ -69,7 +69,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _passwordConfirmController = TextEditingController();
   final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
@@ -93,7 +92,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _passwordController.dispose();
     _passwordConfirmController.dispose();
     _emailController.dispose();
-    _phoneController.dispose();
     super.dispose();
   }
 
@@ -140,15 +138,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (_emailCheck.status == _DupStatus.taken &&
         _emailCheck.checkedValue == v) {
       return '이미 가입된 이메일이에요.';
-    }
-    return null;
-  }
-
-  String? _validatePhone(String? value) {
-    final v = value?.trim() ?? '';
-    if (v.isEmpty) return null; // 선택 항목
-    if (!RegExp(r'^[0-9\-]{9,13}$').hasMatch(v)) {
-      return '숫자와 하이픈(-)만 입력해 주세요. (예: 010-1234-5678)';
     }
     return null;
   }
@@ -261,7 +250,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _usernameController.text.trim(),
         _passwordController.text.trim(),
         _emailController.text.trim(),
-        _phoneController.text.trim(),
       );
 
       // 가입 응답에 토큰이 포함되어 세션이 저장되므로 바로 홈으로 이동
@@ -433,9 +421,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       autovalidateMode: AutovalidateMode.onUserInteraction,
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
+                      textInputAction: TextInputAction.done,
                       validator: _validateEmail,
                       onChanged: _onEmailChanged,
+                      onFieldSubmitted: (_) {
+                        if (!_isLoading) _register();
+                      },
                       decoration: InputDecoration(
                         labelText: '이메일 *',
                         helperText: _dupHelper(
@@ -450,23 +441,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // 전화번호
-                    TextFormField(
-                      autovalidateMode: AutovalidateMode.onUserInteraction,
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      textInputAction: TextInputAction.done,
-                      validator: _validatePhone,
-                      onFieldSubmitted: (_) {
-                        if (!_isLoading) _register();
-                      },
-                      decoration: const InputDecoration(
-                        labelText: '전화번호 (선택)',
-                        prefixIcon: Icon(Icons.phone),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 8),
 
                     // 가입 버튼
                     SizedBox(

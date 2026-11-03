@@ -65,4 +65,77 @@ public class AuthController {
             return ResponseEntity.status(401).body(Map.of("message", e.getMessage()));
         }
     }
+
+    // ──────────────────── 아이디/비밀번호 찾기 ────────────────────
+
+    private static String field(Map<String, String> body, String name) {
+        String v = body.get(name);
+        return v == null ? "" : v.trim();
+    }
+
+    /**
+     * POST /api/auth/find-id/send-code  { email }
+     */
+    @PostMapping("/find-id/send-code")
+    public ResponseEntity<?> sendFindIdCode(@RequestBody Map<String, String> body) {
+        try {
+            authService.sendFindIdCode(field(body, "email"));
+            return ResponseEntity.ok(Map.of("message", "인증코드를 보냈어요."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
+     * POST /api/auth/find-id  { email, code } → { loginId }
+     */
+    @PostMapping("/find-id")
+    public ResponseEntity<?> findLoginId(@RequestBody Map<String, String> body) {
+        try {
+            String loginId = authService.findLoginId(field(body, "email"), field(body, "code"));
+            return ResponseEntity.ok(Map.of("loginId", loginId));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
+     * POST /api/auth/reset-password/send-code  { loginId, email }
+     */
+    @PostMapping("/reset-password/send-code")
+    public ResponseEntity<?> sendResetCode(@RequestBody Map<String, String> body) {
+        try {
+            authService.sendResetCode(field(body, "loginId"), field(body, "email"));
+            return ResponseEntity.ok(Map.of("message", "인증코드를 보냈어요."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
+     * POST /api/auth/reset-password/verify  { loginId, email, code }
+     */
+    @PostMapping("/reset-password/verify")
+    public ResponseEntity<?> verifyResetCode(@RequestBody Map<String, String> body) {
+        try {
+            authService.verifyResetCode(field(body, "loginId"), field(body, "email"), field(body, "code"));
+            return ResponseEntity.ok(Map.of("message", "인증됐어요."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
+     * POST /api/auth/reset-password  { loginId, email, code, newPassword }
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> body) {
+        try {
+            authService.resetPassword(field(body, "loginId"), field(body, "email"),
+                    field(body, "code"), body.get("newPassword"));
+            return ResponseEntity.ok(Map.of("message", "비밀번호를 변경했어요."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
 }

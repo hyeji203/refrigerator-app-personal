@@ -21,6 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _expiringCount = 0; // 냉장고 탭 배지 (유통기한 임박·만료 재료 수)
   final GlobalKey<IngredientScreenState> _ingredientKey = GlobalKey();
   final GlobalKey<RecipeScreenState> _recipeKey = GlobalKey();
+  final GlobalKey<ProfileScreenState> _profileKey = GlobalKey();
 
   late final List<Widget> _screens;
 
@@ -39,7 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onAnalyzeCompleted: _onScanCompleted,
       ),
       RecipeScreen(key: _recipeKey),
-      const ProfileScreen(),
+      ProfileScreen(key: _profileKey, onGoToFridge: () => _onTabTap(0)),
     ];
     WidgetsBinding.instance.addPostFrameCallback((_) => _showOnboardingOnce());
   }
@@ -63,6 +64,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _ingredientKey.currentState?.loadIngredients();
     } else if (index == 2) {
       _recipeKey.currentState?.loadRecipes();
+    } else if (index == 3) {
+      _profileKey.currentState?.loadSummary();
     }
   }
 

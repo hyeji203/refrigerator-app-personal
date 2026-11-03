@@ -23,15 +23,14 @@ class AuthService extends ChangeNotifier {
   bool get isLoggedIn => _isLoggedIn;
 
   // 회원가입
-  Future<void> register(String loginId, String username, String password,
-      String email, String phone) async {
+  Future<void> register(
+      String loginId, String username, String password, String email) async {
     try {
       final response = await ApiService.dio.post('/auth/register', data: {
         'loginId': loginId,
         'username': username,
         'password': password,
         'email': email,
-        'phone': phone,
       });
       await _saveSessionData(response.data);
     } on DioException catch (e) {
@@ -65,6 +64,54 @@ class AuthService extends ChangeNotifier {
       throw _parseDioException(e, fallback: '로그인 중 오류가 발생했습니다');
     }
   }
+
+  // ── 아이디/비밀번호 찾기 (이메일 인증코드) ──
+
+  Future<void> _postAuth(String path, Map<String, dynamic> data,
+      {required String fallback}) async {
+    try {
+      await ApiService.dio.post(path, data: data);
+    } on DioException catch (e) {
+      throw _parseDioException(e, fallback: fallback);
+    }
+  }
+
+  // 아이디 찾기: 가입 이메일로 인증코드 발송
+  Future<void> sendFindIdCode(String email) => _postAuth(
+      '/auth/find-id/send-code', {'email': email},
+      fallback: '인증코드를 보내지 못했어요');
+
+  // 아이디 찾기: 코드 확인 후 아이디 반환
+  Future<String> findLoginId(String email, String code) async {
+    try {
+      final response = await ApiService.dio
+          .post('/auth/find-id', data: {'email': email, 'code': code});
+      return response.data['loginId'] as String;
+    } on DioException catch (e) {
+      throw _parseDioException(e, fallback: '아이디를 찾지 못했어요');
+    }
+  }
+
+  // 비밀번호 재설정: 아이디+이메일 확인 후 인증코드 발송
+  Future<void> sendResetCode(String loginId, String email) => _postAuth(
+      '/auth/reset-password/send-code', {'loginId': loginId, 'email': email},
+      fallback: '인증코드를 보내지 못했어요');
+
+  // 비밀번호 재설정: 코드 확인
+  Future<void> verifyResetCode(String loginId, String email, String code) =>
+      _postAuth('/auth/reset-password/verify',
+          {'loginId': loginId, 'email': email, 'code': code},
+          fallback: '인증코드를 확인하지 못했어요');
+
+  // 비밀번호 재설정: 새 비밀번호 저장
+  Future<void> resetPassword(
+          String loginId, String email, String code, String newPassword) =>
+      _postAuth('/auth/reset-password', {
+        'loginId': loginId,
+        'email': email,
+        'code': code,
+        'newPassword': newPassword,
+      }, fallback: '비밀번호를 변경하지 못했어요');
 
   // 세션 데이터 저장
   Future<void> _saveSessionData(Map<String, dynamic> data) async {

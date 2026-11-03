@@ -83,9 +83,6 @@ class ScanStepIndicator extends StatelessWidget implements PreferredSizeWidget {
     return Container(
       height: preferredSize.height,
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 8),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: children,

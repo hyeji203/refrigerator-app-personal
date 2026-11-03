@@ -16,11 +16,14 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final EmailVerificationService emailVerificationService;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtUtil jwtUtil,
+                       EmailVerificationService emailVerificationService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
+        this.emailVerificationService = emailVerificationService;
     }
 
     /**
@@ -95,5 +98,66 @@ public class AuthService {
                 .email(user.getEmail())
                 .token(token)
                 .build();
+    }
+
+    // ──────────────────── 아이디/비밀번호 찾기 ────────────────────
+
+    /**
+     * 아이디 찾기 1단계: 가입 이메일로 인증코드 발송
+     */
+    @Transactional(readOnly = true)
+    public void sendFindIdCode(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("가입되지 않은 이메일이에요."));
+        emailVerificationService.sendCode(EmailVerificationService.Purpose.FIND_ID, user.getEmail());
+    }
+
+    /**
+     * 아이디 찾기 2단계: 코드 확인 후 아이디 반환
+     */
+    @Transactional(readOnly = true)
+    public String findLoginId(String email, String code) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("가입되지 않은 이메일이에요."));
+        emailVerificationService.verify(EmailVerificationService.Purpose.FIND_ID, user.getEmail(), code, true);
+        return user.getLoginId();
+    }
+
+    /**
+     * 비밀번호 재설정 1단계: 아이디와 이메일이 같은 계정이면 인증코드 발송
+     */
+    @Transactional(readOnly = true)
+    public void sendResetCode(String loginId, String email) {
+        User user = findByLoginIdAndEmail(loginId, email);
+        emailVerificationService.sendCode(EmailVerificationService.Purpose.RESET_PASSWORD, user.getEmail());
+    }
+
+    /**
+     * 비밀번호 재설정 2단계: 코드만 확인 (새 비밀번호 입력 화면으로 넘어가기 전)
+     */
+    @Transactional(readOnly = true)
+    public void verifyResetCode(String loginId, String email, String code) {
+        User user = findByLoginIdAndEmail(loginId, email);
+        emailVerificationService.verify(EmailVerificationService.Purpose.RESET_PASSWORD, user.getEmail(), code, false);
+    }
+
+    /**
+     * 비밀번호 재설정 3단계: 코드를 다시 확인하고 새 비밀번호 저장
+     */
+    @Transactional
+    public void resetPassword(String loginId, String email, String code, String newPassword) {
+        if (newPassword == null || newPassword.trim().length() < 6) {
+            throw new RuntimeException("비밀번호는 6자 이상이어야 해요.");
+        }
+        User user = findByLoginIdAndEmail(loginId, email);
+        emailVerificationService.verify(EmailVerificationService.Purpose.RESET_PASSWORD, user.getEmail(), code, true);
+        user.setPassword(passwordEncoder.encode(newPassword.trim()));
+        userRepository.save(user);
+    }
+
+    private User findByLoginIdAndEmail(String loginId, String email) {
+        return userRepository.findByLoginId(loginId)
+                .filter(u -> u.getEmail() != null && u.getEmail().equalsIgnoreCase(email))
+                .orElseThrow(() -> new RuntimeException("아이디와 이메일이 일치하는 계정이 없어요."));
     }
 }

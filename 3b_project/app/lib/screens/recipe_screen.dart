@@ -29,6 +29,7 @@ class RecipeScreenState extends State<RecipeScreen> {
   bool _isSearching = false;
   List<Recipe> _searchResults = [];
   bool _isSearchLoading = false;
+  String? _searchedKeyword; // 검색을 실제로 완료한 키워드 (null이면 아직 검색 전)
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -58,8 +59,10 @@ class RecipeScreenState extends State<RecipeScreen> {
         ),
       );
       final List data = response.data;
-      setState(
-          () => _searchResults = data.map((e) => Recipe.fromJson(e)).toList());
+      setState(() {
+        _searchResults = data.map((e) => Recipe.fromJson(e)).toList();
+        _searchedKeyword = keyword.trim();
+      });
       if (!mounted) return;
       if (_searchResults.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -87,6 +90,7 @@ class RecipeScreenState extends State<RecipeScreen> {
     setState(() {
       _isSearching = true;
       _searchResults = [];
+      _searchedKeyword = null;
     });
   }
 
@@ -94,6 +98,7 @@ class RecipeScreenState extends State<RecipeScreen> {
     setState(() {
       _isSearching = false;
       _searchResults = [];
+      _searchedKeyword = null;
       _searchController.clear();
     });
   }
@@ -193,7 +198,10 @@ class RecipeScreenState extends State<RecipeScreen> {
                     icon: const Icon(Icons.clear),
                     onPressed: () {
                       _searchController.clear();
-                      setState(() => _searchResults = []);
+                      setState(() {
+                        _searchResults = [];
+                        _searchedKeyword = null;
+                      });
                     },
                   ),
                 IconButton(
@@ -252,13 +260,20 @@ class RecipeScreenState extends State<RecipeScreen> {
                     ],
                   ),
                 )
-              : _searchResults.isEmpty
+              : _searchedKeyword == null
+                  // 아직 검색 전: "결과 없음" 대신 검색 안내
                   ? const EmptyStateWidget(
-                      icon: Icons.search_off,
-                      title: '검색 결과가 없어요',
-                      subtitle: '재료 이름을 입력하고 검색 버튼을 눌러보세요',
+                      icon: Icons.manage_search,
+                      title: '어떤 재료로 요리할까요?',
+                      subtitle: '재료 이름을 입력하면 AI가 레시피를 찾아드려요',
                     )
-                  : _buildRecipeList(_searchResults)
+                  : _searchResults.isEmpty
+                      ? EmptyStateWidget(
+                          icon: Icons.search_off,
+                          title: "'$_searchedKeyword' 검색 결과가 없어요",
+                          subtitle: '다른 재료 이름으로 다시 검색해 보세요',
+                        )
+                      : _buildRecipeList(_searchResults)
           : _isLoading
               ? const Center(child: CircularProgressIndicator())
               : Column(
